@@ -8,8 +8,8 @@
 
 require 'config.php'; // Open config file, read it over before you run the server!
 
-$conn = array(); // Array of connections/clients
-$channels = array(); // Info on each channel
+$conn = []; // Array of connections/clients
+$channels = []; // Info on each channel
 
 /*
  * Info on each user. Referenced by objects in $conn.
@@ -17,13 +17,13 @@ $channels = array(); // Info on each channel
  * Bug reported by b4, June 16, 2008 while testing /oper
  * Bug fixed by danopia, June 16, 2008
  */
-$u_info = array();
+$u_info = [];
 
 
 // socket_normal_read() was pasted off php.net, thanks to the
 // poster. used to correctly read to newlines on win32
-$sockets = array();
-$queues = array();
+$sockets = [];
+$queues = [];
 $sock_num = 0;
 
 function socket_normal_read($socket): bool|string

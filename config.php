@@ -15,7 +15,7 @@
 // Read over the whole file before you run the server!
 
 
-$config = array(); // Array to store configoration values
+$config = []; // Array to store configoration values
 ////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 //                            Simple stuff                            \\
 ////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -123,5 +123,5 @@ Please submit any bugs you find.
 // Example:
 // $config['opers']['john'] = 'asdf'; // Oper with /oper john adsf
 //
-$config['opers'] = array();
+$config['opers'] = [];
 $config['opers']['john'] = 'asdf';

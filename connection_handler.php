@@ -69,7 +69,7 @@ foreach ($conn as &$me) { // Loop through connections
                 }
 
                 foreach ($conn as $him) { // Check if nick is in use
-                    if (strtolower($him['nick']) == strtolower($newnick))
+                    if ($him['nick'] !== null && strtolower($him['nick']) == strtolower($newnick))
                         $taken = true;
                 }
 
@@ -84,7 +84,7 @@ foreach ($conn as &$me) { // Loop through connections
                 } else {
                     $newme = $me; // Make a new user instance that will be inserted into channel nick lists
                     $newme['nick'] = $newnick;
-                    $sentto = array(); // Who already got the NICK?
+                    $sentto = []; // Who already got the NICK?
                     foreach ($channels as &$channel) { // Looking through the channels....
                         if (in_array($me, $channel['nicks'])) { // Is said user in this channel?
                             foreach ($channel['nicks'] as $user) { // Loop through the nicks in said channel
@@ -178,7 +178,7 @@ foreach ($conn as &$me) { // Loop through connections
                     }
                     $found = false; // Make sure we find the target
                     foreach ($conn as $him) { // Find target
-                        if (strtolower($him['nick']) == strtolower($who))
+                        if ($him['nick'] !== null && strtolower($him['nick']) == strtolower($who))
                             $found = $him;
                     }
                     if ($found === false) { // User offline
@@ -209,21 +209,24 @@ foreach ($conn as &$me) { // Loop through connections
                 }
                 else {
                     foreach ($conn as $him) { // Find target
-                        if (strtolower($him['nick']) == strtolower($target))
-                            send($him, ':' . $me['nick'] . '!' . $me['ident'] . '@' . $u_info[spl_object_id($me['sock'])]['cloak'] . ' PRIVMSG ' . $target . ' :' . $message);
-                    }
+                            if ($him['nick'] !== null) {
+                                if (strtolower($him['nick']) == strtolower($target)) {
+                                    send($him, ':' . $me['nick'] . '!' . $me['ident'] . '@' . $u_info[spl_object_id($me['sock'])]['cloak'] . ' PRIVMSG ' . $target . ' :' . $message);
+                                }
+                            }
+                        }
                 }
                 break;
 
             case 'whois':
                 $target = $args[1];
                 foreach ($conn as $him) {
-                    if (strtolower($him['nick']) == strtolower($target)) { // Find target
+                    if ($him['nick'] !== null && strtolower($him['nick']) == strtolower($target)) { // Find target
                         send($me, ':' . $config['name'] . ' 311 ' . $me['nick'] . ' ' . $him['nick'] . ' ' . $him['ident'] . ' ' . $u_info[spl_object_id($him['sock'])]['cloak'] . ' * :' . $him['realname']);
 
                         //send($me, ':' . $config['name'] . ' 307 ' . $me['nick'] . ' ' . $him['nick'] . ' :is a registered nick');
 
-                        $chans = array();
+                        $chans = [];
                         foreach ($channels as $channel => &$channel_arr) { // Looking through the channels....
                             if (in_array($him, $channel_arr['nicks'])) { // Is said user in this channel?
                                 $chans[] = $channel;
@@ -268,7 +271,7 @@ foreach ($conn as &$me) { // Loop through connections
                             $reason = substr($c, strpos($c, ' :') + 2);
 
                         foreach ($conn as $him) { // Find target
-                            if (strtolower($him['nick']) == strtolower($target))
+                            if ($him['nick'] !== null && strtolower($him['nick']) == strtolower($target))
                                 kill($him, 'Killed (' . $me['nick'] . ' (' . $reason . '))');
                         }
                     }
@@ -287,7 +290,7 @@ foreach ($conn as &$me) { // Loop through connections
                         $newmask = $args[2];
 
                         foreach ($conn as $him) { // Find target
-                            if (strtolower($him['nick']) == strtolower($target))
+                            if ($him['nick'] !== null && strtolower($him['nick']) == strtolower($target))
                                 $u_info[spl_object_id($him['sock'])]['cloak'] = $newmask;
                         }
                     }
@@ -319,7 +322,7 @@ foreach ($conn as &$me) { // Loop through connections
                 }
                 else {
                     foreach ($conn as $him) { // Find target
-                        if (strtolower($him['nick']) == strtolower($target))
+                        if ($him['nick'] !== null && strtolower($him['nick']) == strtolower($target))
                             send($him, ':' . $me['nick'] . '!' . $me['ident'] . '@' . $u_info[spl_object_id($me['sock'])]['cloak'] . ' NOTICE ' . $target . ' :' . $message);
                     }
                 }
@@ -353,7 +356,7 @@ foreach ($conn as &$me) { // Loop through connections
                             $names .= ' ' . $chars . $user['nick'];
                         }
                     } else { // Make a new channel
-                        $channel = array('nicks' => array(), 'bans' => array(), 'excepts' => array(), 'invites' => array(), 'owners' => array(), 'protected' => array(), 'oped' => array($me), 'halfoped' => array(), 'voiced' => array(), 'modes' => 'nt');
+                        $channel = array('nicks' => [], 'bans' => [], 'excepts' => [], 'invites' => [], 'owners' => [], 'protected' => [], 'oped' => array($me), 'halfoped' => [], 'voiced' => [], 'modes' => 'nt');
                         $channels[strtolower($target)] = $channel;
                         $names = '@' . $me['nick']; // User is oped
                     }
@@ -408,7 +411,7 @@ foreach ($conn as &$me) { // Loop through connections
                         $modes = $args[2];
 //var_dump($mode_args);
                         $mode_changes = '';
-                        $mode_change_args = array();
+                        $mode_change_args = [];
                         $mode_change_sign = -1;
                         $sign = true;
 
@@ -516,7 +519,7 @@ foreach ($conn as &$me) { // Loop through connections
                                 $modes = $args[2];
 //var_dump($mode_args);
                                 $mode_changes = '';
-                                $mode_change_args = array();
+                                $mode_change_args = [];
                                 $mode_change_sign = -1;
                                 $sign = true;
                                 for ($i = 0; $i < strlen($modes); $i++) { // Loop through each charactor in the mode request
