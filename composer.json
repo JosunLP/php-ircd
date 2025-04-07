@@ -1,0 +1,21 @@
+{
+    "name": "php-ircd/server",
+    "description": "Modernisierter IRC Server in PHP",
+    "type": "project",
+    "require": {
+        "php": "^8.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "PhpIrcd\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Daniel Danopia",
+            "email": "me@danopia.net",
+            "role": "Original Author"
+        }
+    ],
+    "license": "MIT"
+}
