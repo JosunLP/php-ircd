@@ -6,18 +6,18 @@ use PhpIrcd\Models\User;
 
 class ModeCommand extends CommandBase {
     /**
-     * Führt den MODE-Befehl aus
+     * Executes the MODE command
      * 
-     * @param User $user Der ausführende Benutzer
-     * @param array $args Die Befehlsargumente
+     * @param User $user The executing user
+     * @param array $args The command arguments
      */
     public function execute(User $user, array $args): void {
-        // Sicherstellen, dass der Benutzer registriert ist
+        // Ensure the user is registered
         if (!$this->ensureRegistered($user)) {
             return;
         }
         
-        // Prüfen, ob genügend Parameter vorhanden sind
+        // Check if enough parameters are provided
         if (!isset($args[1])) {
             $this->sendError($user, 'MODE', 'Not enough parameters', 461);
             return;
@@ -25,7 +25,7 @@ class ModeCommand extends CommandBase {
         
         $target = $args[1];
         
-        // Kanalname beginnt mit #
+        // Channel name starts with #
         if ($target[0] === '#') {
             $this->handleChannelMode($user, $args);
         } else {
@@ -34,17 +34,17 @@ class ModeCommand extends CommandBase {
     }
     
     /**
-     * Behandelt Benutzermodi
+     * Handles user modes
      * 
-     * @param User $user Der ausführende Benutzer
-     * @param array $args Die Befehlsargumente
+     * @param User $user The executing user
+     * @param array $args The command arguments
      */
     private function handleUserMode(User $user, array $args): void {
         $config = $this->server->getConfig();
         $nick = $user->getNick();
         $target = $args[1];
         
-        // Zielbenutzer suchen
+        // Search for target user
         $targetUser = null;
         foreach ($this->server->getUsers() as $serverUser) {
             if ($serverUser->getNick() !== null && strtolower($serverUser->getNick()) === strtolower($target)) {
@@ -53,19 +53,19 @@ class ModeCommand extends CommandBase {
             }
         }
         
-        // Wenn Benutzer nicht gefunden wurde, Fehler senden
+        // If user not found, send error
         if ($targetUser === null) {
             $user->send(":{$config['name']} 401 {$nick} {$target} :No such nick/channel");
             return;
         }
         
-        // Andere Benutzer dürfen die Modi nicht ändern
+        // Other users cannot change modes
         if ($targetUser !== $user && !$user->isOper()) {
             $user->send(":{$config['name']} 502 {$nick} :Can't change mode for other users");
             return;
         }
         
-        // Wenn kein Modus angegeben ist, aktuellen Modus anzeigen
+        // If no mode is specified, show current mode
         if (!isset($args[2])) {
             $modes = $targetUser->getModes();
             if (!empty($modes)) {
@@ -76,7 +76,7 @@ class ModeCommand extends CommandBase {
             return;
         }
         
-        // Modi ändern
+        // Change modes
         $modes = $args[2];
         $adding = true;
         
@@ -93,7 +93,7 @@ class ModeCommand extends CommandBase {
                 continue;
             }
             
-            // Nur bestimmte Modi sind erlaubt
+            // Only certain modes are allowed
             switch ($char) {
                 case 'i': // Invisible
                 case 'w': // Wallops
@@ -102,7 +102,7 @@ class ModeCommand extends CommandBase {
                     break;
                 
                 case 'o': // Oper
-                    // Oper-Status kann nur von einem Server gesetzt werden
+                    // Oper status can only be set by a server
                     if (!$adding && $user === $targetUser) {
                         $targetUser->setOper(false);
                         $targetUser->setMode('o', false);
@@ -110,12 +110,12 @@ class ModeCommand extends CommandBase {
                     break;
                 
                 default:
-                    // Unbekannter Modus, ignorieren
+                    // Unknown mode, ignore
                     break;
             }
         }
         
-        // Modus-Änderung an alle Benutzer senden
+        // Send mode change to all users
         $newModes = $targetUser->getModes();
         if (!empty($newModes)) {
             $modeMessage = ":{$nick}!{$user->getIdent()}@{$user->getCloak()} MODE {$target} :+{$newModes}";
@@ -124,26 +124,26 @@ class ModeCommand extends CommandBase {
     }
     
     /**
-     * Behandelt Kanalmodi
+     * Handles channel modes
      * 
-     * @param User $user Der ausführende Benutzer
-     * @param array $args Die Befehlsargumente
+     * @param User $user The executing user
+     * @param array $args The command arguments
      */
     private function handleChannelMode(User $user, array $args): void {
         $config = $this->server->getConfig();
         $nick = $user->getNick();
         $channelName = $args[1];
         
-        // Kanal suchen
+        // Search for channel
         $channel = $this->server->getChannel($channelName);
         
-        // Wenn Kanal nicht gefunden wurde, Fehler senden
+        // If channel not found, send error
         if ($channel === null) {
             $user->send(":{$config['name']} 403 {$nick} {$channelName} :No such channel");
             return;
         }
         
-        // Wenn kein Modus angegeben ist, aktuellen Modus anzeigen
+        // If no mode is specified, show current mode
         if (!isset($args[2])) {
             $modeStr = $channel->getModeString();
             $modeParams = $channel->getModeParams();
@@ -153,18 +153,18 @@ class ModeCommand extends CommandBase {
             return;
         }
         
-        // Prüfen, ob der Benutzer Operator im Kanal ist
+        // Check if the user is an operator in the channel
         if (!$channel->isOperator($user) && !$user->isOper()) {
             $user->send(":{$config['name']} 482 {$nick} {$channelName} :You're not channel operator");
             return;
         }
         
-        // Modi ändern
+        // Change modes
         $modes = $args[2];
         $adding = true;
-        $modeIndex = 3; // Index für Mode-Parameter
-        $modeChanges = ['+' => '', '-' => '']; // Änderungen für die Ankündigung
-        $modeParams = []; // Parameter für die Ankündigung
+        $modeIndex = 3; // Index for mode parameters
+        $modeChanges = ['+' => '', '-' => '']; // Changes for announcement
+        $modeParams = []; // Parameters for announcement
         
         for ($i = 0; $i < strlen($modes); $i++) {
             $char = $modes[$i];
@@ -179,9 +179,9 @@ class ModeCommand extends CommandBase {
                 continue;
             }
             
-            // Modi verwalten
+            // Manage modes
             switch ($char) {
-                // Modi ohne Parameter
+                // Modes without parameters
                 case 'n': // No external messages
                 case 'm': // Moderated
                 case 't': // Topic protection
@@ -192,7 +192,7 @@ class ModeCommand extends CommandBase {
                     $modeChanges[$adding ? '+' : '-'] .= $char;
                     break;
                 
-                // Modi mit Parameter (nur beim Hinzufügen)
+                // Modes with parameters (only when adding)
                 case 'k': // Key
                     if ($adding) {
                         if (isset($args[$modeIndex])) {
@@ -221,14 +221,14 @@ class ModeCommand extends CommandBase {
                     }
                     break;
                 
-                // Benutzer-Modi
+                // User modes
                 case 'o': // Operator
                 case 'v': // Voice
                     if (isset($args[$modeIndex])) {
                         $targetNick = $args[$modeIndex++];
                         $targetUser = null;
                         
-                        // Zielbenutzer suchen
+                        // Search for target user
                         foreach ($channel->getUsers() as $channelUser) {
                             if (strtolower($channelUser->getNick()) === strtolower($targetNick)) {
                                 $targetUser = $channelUser;
@@ -250,12 +250,12 @@ class ModeCommand extends CommandBase {
                     break;
                 
                 default:
-                    // Unbekannter Modus, ignorieren
+                    // Unknown mode, ignore
                     break;
             }
         }
         
-        // Modus-Änderung an alle Benutzer im Kanal senden
+        // Send mode change to all users in the channel
         $modeString = '';
         if (!empty($modeChanges['+'])) {
             $modeString .= '+' . $modeChanges['+'];

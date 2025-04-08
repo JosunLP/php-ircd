@@ -9,29 +9,29 @@ abstract class CommandBase {
     protected $server;
     
     /**
-     * Konstruktor
+     * Constructor
      * 
-     * @param Server $server Die Server-Instanz
+     * @param Server $server The server instance
      */
     public function __construct(Server $server) {
         $this->server = $server;
     }
     
     /**
-     * Führt den Befehl aus
+     * Executes the command
      * 
-     * @param User $user Der ausführende Benutzer
-     * @param array $args Die Befehlsargumente
+     * @param User $user The executing user
+     * @param array $args The command arguments
      */
     abstract public function execute(User $user, array $args): void;
     
     /**
-     * Sendet eine Fehlermeldung an den Benutzer
+     * Sends an error message to the user
      * 
-     * @param User $user Der Benutzer
-     * @param string $command Der Befehl
-     * @param string $message Die Fehlermeldung
-     * @param int $code Der Fehlercode
+     * @param User $user The user
+     * @param string $command The command
+     * @param string $message The error message
+     * @param int $code The error code
      */
     protected function sendError(User $user, string $command, string $message, int $code): void {
         $config = $this->server->getConfig();
@@ -40,10 +40,10 @@ abstract class CommandBase {
     }
     
     /**
-     * Prüft, ob der Benutzer registriert ist
+     * Checks if the user is registered
      * 
-     * @param User $user Der zu prüfende Benutzer
-     * @return bool Ob der Benutzer registriert ist
+     * @param User $user The user to check
+     * @return bool Whether the user is registered
      */
     protected function ensureRegistered(User $user): bool {
         if (!$user->isRegistered()) {
@@ -56,10 +56,10 @@ abstract class CommandBase {
     }
     
     /**
-     * Prüft, ob der Benutzer Operator ist
+     * Checks if the user is an operator
      * 
-     * @param User $user Der zu prüfende Benutzer
-     * @return bool Ob der Benutzer Operator ist
+     * @param User $user The user to check
+     * @return bool Whether the user is an operator
      */
     protected function ensureOper(User $user): bool {
         if (!$user->isOper()) {
@@ -72,22 +72,22 @@ abstract class CommandBase {
     }
     
     /**
-     * Hilfsfunktion zum Parsen des Nachrichtenteils mit dem ':'-Präfix
+     * Helper function to parse the message part with the ':' prefix
      * 
-     * @param array $args Die Befehlsargumente
-     * @param int $startIndex Der Startindex für den Nachrichtenteil
-     * @return string Die zusammengesetzte Nachricht
+     * @param array $args The command arguments
+     * @param int $startIndex The start index for the message part
+     * @return string The combined message
      */
     protected function getMessagePart(array $args, int $startIndex): string {
-        // Wenn Nachrichtenteil nicht existiert oder kein ':' enthält
+        // If the message part does not exist or does not contain ':'
         if (!isset($args[$startIndex]) || strpos($args[$startIndex], ':') !== 0) {
             return '';
         }
         
-        // ':' am Anfang entfernen
+        // Remove ':' at the beginning
         $args[$startIndex] = substr($args[$startIndex], 1);
         
-        // Alle Argumente ab $startIndex zusammenfügen
+        // Combine all arguments starting from $startIndex
         return implode(' ', array_slice($args, $startIndex));
     }
 }

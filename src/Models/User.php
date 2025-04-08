@@ -18,27 +18,27 @@ class User {
     private $away = null;
     
     /**
-     * Konstruktor
+     * Constructor
      * 
-     * @param resource $socket Die Verbindung des Benutzers
-     * @param string $ip Die IP-Adresse des Benutzers
+     * @param resource $socket The user's connection
+     * @param string $ip The user's IP address
      */
     public function __construct($socket, string $ip) {
         $this->socket = $socket;
         $this->ip = $ip;
         $this->host = $this->lookupHostname($ip);
-        $this->cloak = $this->host; // Initialwert, kann später geändert werden
+        $this->cloak = $this->host; // Initial value, can be changed later
         $this->lastActivity = time();
         
-        // Socket auf non-blocking setzen
+        // Set socket to non-blocking
         socket_set_nonblock($this->socket);
     }
     
     /**
-     * Hostname-Lookup mit Timeout
+     * Hostname lookup with timeout
      * 
-     * @param string $ip Die IP-Adresse
-     * @return string Der Hostname oder die IP, wenn der Lookup fehlschlägt
+     * @param string $ip The IP address
+     * @return string The hostname or the IP if the lookup fails
      */
     private function lookupHostname(string $ip): string {
         $hostname = gethostbyaddr($ip);
@@ -46,10 +46,10 @@ class User {
     }
     
     /**
-     * Daten an den Benutzer senden
+     * Send data to the user
      * 
-     * @param string $data Die zu sendenden Daten
-     * @return bool Erfolg des Sendens
+     * @param string $data The data to send
+     * @return bool Success of sending
      */
     public function send(string $data): bool {
         try {
@@ -61,33 +61,33 @@ class User {
     }
     
     /**
-     * Daten vom Benutzer lesen
+     * Read data from the user
      * 
-     * @param int $maxLen Die maximale Lesegröße
-     * @return string|false Die gelesenen Daten oder false bei Fehler/Verbindungsabbruch
+     * @param int $maxLen The maximum read size
+     * @return string|false The read data or false on error/connection loss
      */
     public function read(int $maxLen = 512) {
         try {
-            // Daten vom Socket lesen
+            // Read data from the socket
             $data = @socket_read($this->socket, $maxLen);
             
-            // Bei false oder leerem String ist die Verbindung wahrscheinlich geschlossen
+            // If false or empty string, the connection is likely closed
             if ($data === false || $data === '') {
                 return false;
             }
             
-            // Daten zum Puffer hinzufügen
+            // Add data to the buffer
             $this->buffer .= $data;
             
-            // Wenn der Puffer einen Zeilenumbruch enthält, ersten Befehl zurückgeben
+            // If the buffer contains a newline, return the first command
             $pos = strpos($this->buffer, "\n");
             if ($pos !== false) {
                 $command = substr($this->buffer, 0, $pos);
                 $this->buffer = substr($this->buffer, $pos + 1);
-                return trim($command); // Steuerzeichen entfernen
+                return trim($command); // Remove control characters
             }
             
-            // Kein vollständiger Befehl vorhanden
+            // No complete command available
             return '';
         } catch (\Exception $e) {
             return false;
@@ -95,21 +95,23 @@ class User {
     }
     
     /**
-     * Verbindung schließen
+     * Close connection
      */
     public function disconnect(): void {
-        socket_close($this->socket);
+        if (is_resource($this->socket)) {
+            socket_close($this->socket);
+        }
     }
     
     /**
-     * Getter für das Socket-Objekt
+     * Getter for the socket object
      */
     public function getSocket() {
         return $this->socket;
     }
     
     /**
-     * Getter und Setter für den Nicknamen
+     * Getter and setter for the nickname
      */
     public function getNick(): ?string {
         return $this->nick;
@@ -121,7 +123,7 @@ class User {
     }
     
     /**
-     * Getter und Setter für Ident
+     * Getter and setter for ident
      */
     public function getIdent(): ?string {
         return $this->ident;
@@ -133,7 +135,7 @@ class User {
     }
     
     /**
-     * Getter und Setter für Realname
+     * Getter and setter for realname
      */
     public function getRealname(): ?string {
         return $this->realname;
@@ -145,14 +147,14 @@ class User {
     }
     
     /**
-     * Getter für IP-Adresse
+     * Getter for IP address
      */
     public function getIp(): string {
         return $this->ip;
     }
     
     /**
-     * Getter und Setter für Host
+     * Getter and setter for host
      */
     public function getHost(): string {
         return $this->host;
@@ -163,7 +165,7 @@ class User {
     }
     
     /**
-     * Getter und Setter für Cloak (virtuelle Hostmaske)
+     * Getter and setter for cloak (virtual host mask)
      */
     public function getCloak(): string {
         return $this->cloak;
@@ -174,7 +176,7 @@ class User {
     }
     
     /**
-     * Oper-Status setzen und abfragen
+     * Set and check oper status
      */
     public function isOper(): bool {
         return $this->isOper;
@@ -185,7 +187,7 @@ class User {
     }
     
     /**
-     * Prüft, ob alle notwendigen Daten für die Registration vorhanden sind
+     * Check if all necessary data for registration is available
      */
     private function checkRegistration(): void {
         if (!$this->registered && $this->nick !== null && $this->ident !== null && $this->realname !== null) {
@@ -194,41 +196,41 @@ class User {
     }
     
     /**
-     * Prüft, ob der Benutzer vollständig registriert ist
+     * Check if the user is fully registered
      */
     public function isRegistered(): bool {
         return $this->registered;
     }
     
     /**
-     * Aktualisiert den Zeitstempel der letzten Aktivität
+     * Update the timestamp of the last activity
      */
     public function updateActivity(): void {
         $this->lastActivity = time();
     }
     
     /**
-     * Gibt den Zeitstempel der letzten Aktivität zurück
+     * Return the timestamp of the last activity
      */
     public function getLastActivity(): int {
         return $this->lastActivity;
     }
     
     /**
-     * Gibt zurück, ob der Benutzer inaktiv ist (Timeout)
+     * Return whether the user is inactive (timeout)
      * 
-     * @param int $timeout Die Zeitspanne in Sekunden, nach der ein Benutzer als inaktiv gilt
-     * @return bool Ob der Benutzer inaktiv ist
+     * @param int $timeout The time span in seconds after which a user is considered inactive
+     * @return bool Whether the user is inactive
      */
     public function isInactive(int $timeout): bool {
         return (time() - $this->lastActivity) > $timeout;
     }
     
     /**
-     * Setzt oder entfernt einen Benutzer-Mode
+     * Set or remove a user mode
      * 
-     * @param string $mode Der Mode-Buchstabe
-     * @param bool $value True zum Setzen, False zum Entfernen
+     * @param string $mode The mode letter
+     * @param bool $value True to set, False to remove
      */
     public function setMode(string $mode, bool $value): void {
         if ($value) {
@@ -239,46 +241,46 @@ class User {
     }
     
     /**
-     * Prüft, ob ein bestimmter Mode gesetzt ist
+     * Check if a specific mode is set
      * 
-     * @param string $mode Der zu prüfende Mode-Buchstabe
-     * @return bool Ob der Mode gesetzt ist
+     * @param string $mode The mode letter to check
+     * @return bool Whether the mode is set
      */
     public function hasMode(string $mode): bool {
         return isset($this->modes[$mode]);
     }
     
     /**
-     * Gibt alle gesetzten Modes als String zurück
+     * Return all set modes as a string
      * 
-     * @return string Die Modes als String
+     * @return string The modes as a string
      */
     public function getModes(): string {
         return implode('', array_keys($this->modes));
     }
     
     /**
-     * Setzt den Away-Status
+     * Set the away status
      * 
-     * @param string|null $message Die Away-Message oder null, wenn nicht away
+     * @param string|null $message The away message or null if not away
      */
     public function setAway(?string $message): void {
         $this->away = $message;
     }
     
     /**
-     * Prüft, ob der Benutzer away ist
+     * Check if the user is away
      * 
-     * @return bool Ob der Benutzer away ist
+     * @return bool Whether the user is away
      */
     public function isAway(): bool {
         return $this->away !== null;
     }
     
     /**
-     * Gibt die Away-Message zurück
+     * Return the away message
      * 
-     * @return string|null Die Away-Message oder null, wenn nicht away
+     * @return string|null The away message or null if not away
      */
     public function getAwayMessage(): ?string {
         return $this->away;

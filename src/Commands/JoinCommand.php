@@ -7,53 +7,53 @@ use PhpIrcd\Models\Channel;
 
 class JoinCommand extends CommandBase {
     /**
-     * Führt den JOIN-Befehl aus
+     * Executes the JOIN command
      * 
-     * @param User $user Der ausführende Benutzer
-     * @param array $args Die Befehlsargumente
+     * @param User $user The executing user
+     * @param array $args The command arguments
      */
     public function execute(User $user, array $args): void {
-        // Sicherstellen, dass der Benutzer registriert ist
+        // Ensure the user is registered
         if (!$this->ensureRegistered($user)) {
             return;
         }
         
-        // Prüfen, ob genügend Parameter vorhanden sind
+        // Check if enough parameters are provided
         if (!isset($args[1])) {
             $this->sendError($user, 'JOIN', 'Not enough parameters', 461);
             return;
         }
         
-        // Kanäle und Keys extrahieren
+        // Extract channels and keys
         $channelNames = explode(',', $args[1]);
         $keys = isset($args[2]) ? explode(',', $args[2]) : [];
         
         foreach ($channelNames as $index => $channelName) {
-            // Kanalname validieren
+            // Validate channel name
             if (!$this->validateChannelName($channelName)) {
                 $user->send(":{$this->server->getConfig()['name']} 403 {$user->getNick()} {$channelName} :No such channel");
                 continue;
             }
             
-            // Schlüssel für den Kanal ermitteln
+            // Determine the key for the channel
             $key = isset($keys[$index]) ? $keys[$index] : null;
             
-            // Channel beitreten
+            // Join the channel
             $this->joinChannel($user, $channelName, $key);
         }
     }
     
     /**
-     * Lässt einen Benutzer einem Kanal beitreten
+     * Allows a user to join a channel
      * 
-     * @param User $user Der Benutzer
-     * @param string $channelName Der Kanalname
-     * @param string|null $key Der Schlüssel für den Kanal
+     * @param User $user The user
+     * @param string $channelName The channel name
+     * @param string|null $key The key for the channel
      */
     private function joinChannel(User $user, string $channelName, ?string $key): void {
         $config = $this->server->getConfig();
         
-        // Channel holen oder erstellen
+        // Get or create the channel
         $channel = $this->server->getChannel($channelName);
         $isNewChannel = $channel === null;
         
@@ -61,15 +61,15 @@ class JoinCommand extends CommandBase {
             $channel = new Channel($channelName);
             $this->server->addChannel($channel);
             
-            // Performance-Optimierung für Webserver:
-            // Beim Erstellen eines Channels die Daten in einer Datei oder Datenbank speichern,
-            // damit der Zustand zwischen Webserver-Anfragen erhalten bleibt
+            // Performance optimization for web servers:
+            // When creating a channel, save the data in a file or database
+            // to preserve the state between web server requests
             $this->server->saveChannelState($channel);
         }
         
-        // Prüfen, ob der Benutzer dem Kanal beitreten kann
+        // Check if the user can join the channel
         if (!$isNewChannel && !$channel->canJoin($user, $key)) {
-            // Fehlermeldungen je nach Grund
+            // Error messages depending on the reason
             if ($channel->isBanned($user)) {
                 $user->send(":{$config['name']} 474 {$user->getNick()} {$channelName} :Cannot join channel (+b)");
             } else if ($channel->hasMode('i') && !$channel->isInvited($user)) {
@@ -84,19 +84,19 @@ class JoinCommand extends CommandBase {
             return;
         }
         
-        // Benutzer zum Kanal hinzufügen
+        // Add user to the channel
         $channel->addUser($user, $isNewChannel);
         
-        // Channel-Zustand speichern nach Benutzerbeitritt
+        // Save channel state after user joins
         $this->server->saveChannelState($channel);
         
-        // JOIN-Nachricht an alle Benutzer im Kanal senden
+        // Send JOIN message to all users in the channel
         $joinMessage = ":{$user->getNick()}!{$user->getIdent()}@{$user->getCloak()} JOIN :{$channelName}";
         foreach ($channel->getUsers() as $channelUser) {
             $channelUser->send($joinMessage);
         }
         
-        // Topic senden, wenn vorhanden
+        // Send topic if available
         $topic = $channel->getTopic();
         if ($topic !== null) {
             $user->send(":{$config['name']} 332 {$user->getNick()} {$channelName} :{$topic}");
@@ -105,27 +105,27 @@ class JoinCommand extends CommandBase {
             $user->send(":{$config['name']} 331 {$user->getNick()} {$channelName} :No topic is set");
         }
         
-        // Benutzerliste senden
+        // Send user list
         $this->sendNamesList($user, $channel);
     }
     
     /**
-     * Sendet die NAMES-Liste an einen Benutzer
+     * Sends the NAMES list to a user
      * 
-     * @param User $user Der Benutzer
-     * @param Channel $channel Der Kanal
+     * @param User $user The user
+     * @param Channel $channel The channel
      */
     private function sendNamesList(User $user, Channel $channel): void {
         $config = $this->server->getConfig();
         $nick = $user->getNick();
         $channelName = $channel->getName();
         
-        // Benutzerliste erstellen
+        // Create user list
         $userNames = [];
         foreach ($channel->getUsers() as $channelUser) {
             $prefix = '';
             
-            // Präfixe hinzufügen
+            // Add prefixes
             if ($channel->isOwner($channelUser)) {
                 $prefix = '~';
             } else if ($channel->isProtected($channelUser)) {
@@ -141,8 +141,8 @@ class JoinCommand extends CommandBase {
             $userNames[] = $prefix . $channelUser->getNick();
         }
         
-        // Benutzerliste in Teile aufteilen (max. 512 Bytes pro Nachricht)
-        $maxNamesPerLine = 30; // Ungefährer Wert
+        // Split user list into parts (max. 512 bytes per message)
+        $maxNamesPerLine = 30; // Approximate value
         $nameChunks = array_chunk($userNames, $maxNamesPerLine);
         
         foreach ($nameChunks as $nameChunk) {
@@ -154,13 +154,33 @@ class JoinCommand extends CommandBase {
     }
     
     /**
-     * Validiert einen Kanalnamen anhand der IRC-Regeln
+     * Validates a channel name according to IRC rules
      * 
-     * @param string $channelName Der zu prüfende Kanalname
-     * @return bool Ob der Kanalname gültig ist
+     * @param string $channelName The channel name to validate
+     * @return bool Whether the channel name is valid
      */
     private function validateChannelName(string $channelName): bool {
-        // Kanalname muss mit # beginnen und darf keine Leerzeichen enthalten
-        return preg_match('/^#[^\s,]+$/', $channelName) === 1;
+        // Channel name must start with #, &, + or ! (We support only # for simplicity)
+        // Must be between 2-50 characters
+        // Cannot contain spaces, commas, control characters, or other special characters
+        // Regular IRC allows more complex channel names, but we're simplifying for our implementation
+        if (strlen($channelName) < 2 || strlen($channelName) > 50) {
+            return false;
+        }
+        
+        // Check first character
+        if ($channelName[0] !== '#') {
+            return false;
+        }
+        
+        // Check for invalid characters
+        $invalidChars = [' ', ',', "\x07", "\x00", "\r", "\n", "\t"];
+        foreach ($invalidChars as $char) {
+            if (strpos($channelName, $char) !== false) {
+                return false;
+            }
+        }
+        
+        return true;
     }
 }

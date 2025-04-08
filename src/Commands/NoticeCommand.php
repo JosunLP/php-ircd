@@ -6,51 +6,51 @@ use PhpIrcd\Models\User;
 
 class NoticeCommand extends CommandBase {
     /**
-     * Führt den NOTICE-Befehl aus
+     * Executes the NOTICE command
      * 
-     * @param User $user Der ausführende Benutzer
-     * @param array $args Die Befehlsargumente
+     * @param User $user The executing user
+     * @param array $args The command arguments
      */
     public function execute(User $user, array $args): void {
-        // Sicherstellen, dass der Benutzer registriert ist
+        // Ensure the user is registered
         if (!$this->ensureRegistered($user)) {
             return;
         }
         
-        // Prüfen, ob genügend Parameter vorhanden sind
+        // Check if enough parameters are provided
         if (!isset($args[1]) || !isset($args[2])) {
-            // Bei NOTICE werden keine Fehlermeldungen gesendet
+            // NOTICE does not send error messages
             return;
         }
         
-        // Ziele extrahieren
+        // Extract targets
         $targets = explode(',', $args[1]);
         $message = $this->getMessagePart($args, 2);
         
-        // Nachricht an alle Ziele senden
+        // Send message to all targets
         foreach ($targets as $target) {
             $this->sendNotice($user, $target, $message);
         }
     }
     
     /**
-     * Sendet eine Notice an ein Ziel
+     * Sends a notice to a target
      * 
-     * @param User $user Der sendende Benutzer
-     * @param string $target Das Ziel (Benutzer oder Kanal)
-     * @param string $message Die Nachricht
+     * @param User $user The sending user
+     * @param string $target The target (user or channel)
+     * @param string $message The message
      */
     private function sendNotice(User $user, string $target, string $message): void {
-        // Kanalname beginnt mit #
+        // Channel name starts with #
         if ($target[0] === '#') {
             $this->sendChannelNotice($user, $target, $message);
             return;
         }
         
-        // Sonst an einen Benutzer senden
+        // Otherwise send to a user
         $targetUser = null;
         
-        // Benutzer suchen
+        // Search for the user
         foreach ($this->server->getUsers() as $serverUser) {
             if ($serverUser->getNick() !== null && strtolower($serverUser->getNick()) === strtolower($target)) {
                 $targetUser = $serverUser;
@@ -58,47 +58,47 @@ class NoticeCommand extends CommandBase {
             }
         }
         
-        // Wenn Benutzer nicht gefunden wurde, nichts tun (NOTICE sendet keine Fehler)
+        // If user not found, do nothing (NOTICE does not send errors)
         if ($targetUser === null) {
             return;
         }
         
-        // Nachricht an den Zielbenutzer senden
+        // Send message to the target user
         $targetUser->send(":{$user->getNick()}!{$user->getIdent()}@{$user->getCloak()} NOTICE {$target} :{$message}");
     }
     
     /**
-     * Sendet eine Notice an einen Kanal
+     * Sends a notice to a channel
      * 
-     * @param User $user Der sendende Benutzer
-     * @param string $channelName Der Kanalname
-     * @param string $message Die Nachricht
+     * @param User $user The sending user
+     * @param string $channelName The channel name
+     * @param string $message The message
      */
     private function sendChannelNotice(User $user, string $channelName, string $message): void {
-        // Kanal suchen
+        // Search for the channel
         $channel = $this->server->getChannel($channelName);
         
-        // Wenn Kanal nicht gefunden wurde, nichts tun (NOTICE sendet keine Fehler)
+        // If channel not found, do nothing (NOTICE does not send errors)
         if ($channel === null) {
             return;
         }
         
-        // Prüfen, ob der Benutzer im Kanal ist
+        // Check if the user is in the channel
         if (!$channel->hasUser($user)) {
             return;
         }
         
-        // Prüfen, ob der Kanal im no-external-messages Modus ist
+        // Check if the channel is in no-external-messages mode
         if ($channel->hasMode('n') && !$channel->hasUser($user)) {
             return;
         }
         
-        // Prüfen, ob der Kanal im moderated Modus ist und der Benutzer keine Voice hat
+        // Check if the channel is in moderated mode and the user has no voice
         if ($channel->hasMode('m') && !$channel->isVoiced($user) && !$channel->isOperator($user)) {
             return;
         }
         
-        // Nachricht an alle Benutzer im Kanal senden (außer dem Sender)
+        // Send message to all users in the channel (except the sender)
         $message = ":{$user->getNick()}!{$user->getIdent()}@{$user->getCloak()} NOTICE {$channelName} :{$message}";
         foreach ($channel->getUsers() as $channelUser) {
             if ($channelUser !== $user) {

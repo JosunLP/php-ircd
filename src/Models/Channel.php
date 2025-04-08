@@ -11,14 +11,14 @@ class Channel {
     private $modes = [];
     private $created;
     
-    // Channel-Benutzer-Modi
+    // Channel user modes
     private $operators = [];      // @
     private $voiced = [];         // +
     private $halfops = [];        // %
     private $owners = [];         // ~
     private $protected = [];      // &
     
-    // Channel-Schutz
+    // Channel protection
     private $bans = [];
     private $inviteExceptions = [];
     private $banExceptions = [];
@@ -27,25 +27,25 @@ class Channel {
     private $limit = 0;
     
     /**
-     * Konstruktor
+     * Constructor
      * 
-     * @param string $name Der Kanalname
+     * @param string $name The channel name
      */
     public function __construct(string $name) {
         $this->name = $name;
         $this->created = time();
         
-        // Standardmäßig nt-Modus setzen (kein Thema durch Benutzer, kein /NOTICE)
+        // Set default nt mode (no topic by users, no /NOTICE)
         $this->modes['n'] = true;
         $this->modes['t'] = true;
     }
     
     /**
-     * Fügt einen Benutzer zum Kanal hinzu
+     * Adds a user to the channel
      * 
-     * @param User $user Der hinzuzufügende Benutzer
-     * @param bool $asOperator Optional: Ob der Benutzer als Operator hinzugefügt werden soll
-     * @return bool Erfolg der Operation
+     * @param User $user The user to be added
+     * @param bool $asOperator Optional: Whether the user should be added as an operator
+     * @return bool Success of the operation
      */
     public function addUser(User $user, bool $asOperator = false): bool {
         if ($this->hasUser($user)) {
@@ -54,7 +54,7 @@ class Channel {
         
         $this->users[] = $user;
         
-        // Wenn erster Benutzer oder als Operator hinzugefügt, als OP markieren
+        // If first user or added as operator, mark as OP
         if ($asOperator || count($this->users) === 1) {
             $this->operators[] = $user;
         }
@@ -63,10 +63,10 @@ class Channel {
     }
     
     /**
-     * Entfernt einen Benutzer aus dem Kanal
+     * Removes a user from the channel
      * 
-     * @param User $user Der zu entfernende Benutzer
-     * @return bool Erfolg der Operation
+     * @param User $user The user to be removed
+     * @return bool Success of the operation
      */
     public function removeUser(User $user): bool {
         $key = array_search($user, $this->users, true);
@@ -75,18 +75,18 @@ class Channel {
         }
         
         unset($this->users[$key]);
-        $this->users = array_values($this->users); // Array reindexieren
+        $this->users = array_values($this->users); // Reindex array
         
-        // Benutzer aus allen Modlisten entfernen
+        // Remove user from all mod lists
         $this->removeUserFromModlists($user);
         
         return true;
     }
     
     /**
-     * Entfernt einen Benutzer aus allen Modlisten
+     * Removes a user from all mod lists
      * 
-     * @param User $user Der zu entfernende Benutzer
+     * @param User $user The user to be removed
      */
     private function removeUserFromModlists(User $user): void {
         $lists = [
@@ -97,36 +97,36 @@ class Channel {
             $key = array_search($user, $this->{$list}, true);
             if ($key !== false) {
                 unset($this->{$list}[$key]);
-                $this->{$list} = array_values($this->{$list}); // Array reindexieren
+                $this->{$list} = array_values($this->{$list}); // Reindex array
             }
         }
     }
     
     /**
-     * Prüft, ob ein Benutzer im Kanal ist
+     * Checks if a user is in the channel
      * 
-     * @param User $user Der zu prüfende Benutzer
-     * @return bool Ob der Benutzer im Kanal ist
+     * @param User $user The user to be checked
+     * @return bool Whether the user is in the channel
      */
     public function hasUser(User $user): bool {
         return in_array($user, $this->users, true);
     }
     
     /**
-     * Gibt alle Benutzer im Kanal zurück
+     * Returns all users in the channel
      * 
-     * @return array Die Benutzer im Kanal
+     * @return array The users in the channel
      */
     public function getUsers(): array {
         return $this->users;
     }
     
     /**
-     * Setzt oder entfernt einen Kanal-Mode
+     * Sets or removes a channel mode
      * 
-     * @param string $mode Der Mode-Buchstabe
-     * @param bool $value True zum Setzen, False zum Entfernen
-     * @param mixed $param Optional: Parameter für den Mode (z.B. Limit-Zahl, Key)
+     * @param string $mode The mode letter
+     * @param bool $value True to set, False to remove
+     * @param mixed $param Optional: Parameter for the mode (e.g., limit number, key)
      */
     public function setMode(string $mode, bool $value, $param = null): void {
         switch ($mode) {
@@ -150,7 +150,7 @@ class Channel {
                 }
                 break;
                 
-            default: // Andere Modes
+            default: // Other modes
                 if ($value) {
                     $this->modes[$mode] = true;
                 } else {
@@ -161,10 +161,10 @@ class Channel {
     }
     
     /**
-     * Prüft, ob ein bestimmter Mode gesetzt ist
+     * Checks if a specific mode is set
      * 
-     * @param string $mode Der zu prüfende Mode-Buchstabe
-     * @return bool Ob der Mode gesetzt ist
+     * @param string $mode The mode letter to be checked
+     * @return bool Whether the mode is set
      */
     public function hasMode(string $mode): bool {
         switch ($mode) {
@@ -180,9 +180,9 @@ class Channel {
     }
     
     /**
-     * Gibt alle einfachen Modes als String zurück
+     * Returns all simple modes as a string
      * 
-     * @return string Die Modes als String
+     * @return string The modes as a string
      */
     public function getModeString(): string {
         $modeStr = implode('', array_keys($this->modes));
@@ -203,9 +203,9 @@ class Channel {
     }
     
     /**
-     * Gibt alle Mode-Parameter als Array zurück
+     * Returns all mode parameters as an array
      * 
-     * @return array Die Mode-Parameter
+     * @return array The mode parameters
      */
     public function getModeParams(): array {
         $params = [];
@@ -222,19 +222,19 @@ class Channel {
     }
     
     /**
-     * Gibt den Kanalnamen zurück
+     * Returns the channel name
      * 
-     * @return string Der Kanalname
+     * @return string The channel name
      */
     public function getName(): string {
         return $this->name;
     }
     
     /**
-     * Setzt das Topic
+     * Sets the topic
      * 
-     * @param string $topic Das neue Topic
-     * @param string $setBy Wer das Topic gesetzt hat
+     * @param string $topic The new topic
+     * @param string $setBy Who set the topic
      */
     public function setTopic(string $topic, string $setBy): void {
         $this->topic = $topic;
@@ -243,47 +243,47 @@ class Channel {
     }
     
     /**
-     * Gibt das Topic zurück
+     * Returns the topic
      * 
-     * @return string|null Das Topic oder null, wenn keines gesetzt ist
+     * @return string|null The topic or null if none is set
      */
     public function getTopic(): ?string {
         return $this->topic;
     }
     
     /**
-     * Gibt zurück, wer das Topic gesetzt hat
+     * Returns who set the topic
      * 
-     * @return string|null Der Nickname oder null, wenn kein Topic gesetzt ist
+     * @return string|null The nickname or null if no topic is set
      */
     public function getTopicSetBy(): ?string {
         return $this->topicSetBy;
     }
     
     /**
-     * Gibt zurück, wann das Topic gesetzt wurde
+     * Returns when the topic was set
      * 
-     * @return int Der Unix-Timestamp oder 0, wenn kein Topic gesetzt ist
+     * @return int The Unix timestamp or 0 if no topic is set
      */
     public function getTopicSetTime(): int {
         return $this->topicSetTime;
     }
     
     /**
-     * Prüft, ob ein Benutzer Operator-Status hat
+     * Checks if a user has operator status
      * 
-     * @param User $user Der zu prüfende Benutzer
-     * @return bool Ob der Benutzer Operator ist
+     * @param User $user The user to be checked
+     * @return bool Whether the user is an operator
      */
     public function isOperator(User $user): bool {
         return in_array($user, $this->operators, true);
     }
     
     /**
-     * Setzt oder entfernt den Operator-Status eines Benutzers
+     * Sets or removes the operator status of a user
      * 
-     * @param User $user Der Benutzer
-     * @param bool $value True zum Setzen, False zum Entfernen
+     * @param User $user The user
+     * @param bool $value True to set, False to remove
      */
     public function setOperator(User $user, bool $value): void {
         if ($value && !$this->isOperator($user)) {
@@ -296,20 +296,20 @@ class Channel {
     }
     
     /**
-     * Prüft, ob ein Benutzer Voice-Status hat
+     * Checks if a user has voice status
      * 
-     * @param User $user Der zu prüfende Benutzer
-     * @return bool Ob der Benutzer Voice hat
+     * @param User $user The user to be checked
+     * @return bool Whether the user has voice
      */
     public function isVoiced(User $user): bool {
         return in_array($user, $this->voiced, true);
     }
     
     /**
-     * Setzt oder entfernt den Voice-Status eines Benutzers
+     * Sets or removes the voice status of a user
      * 
-     * @param User $user Der Benutzer
-     * @param bool $value True zum Setzen, False zum Entfernen
+     * @param User $user The user
+     * @param bool $value True to set, False to remove
      */
     public function setVoiced(User $user, bool $value): void {
         if ($value && !$this->isVoiced($user)) {
@@ -322,11 +322,11 @@ class Channel {
     }
     
     /**
-     * Fügt einen Ban hinzu
+     * Adds a ban
      * 
-     * @param string $mask Die Ban-Maske (z.B. *!*@*.example.com)
-     * @param string $by Wer den Ban gesetzt hat
-     * @return bool Erfolg der Operation
+     * @param string $mask The ban mask (e.g., *!*@*.example.com)
+     * @param string $by Who set the ban
+     * @return bool Success of the operation
      */
     public function addBan(string $mask, string $by): bool {
         if (in_array($mask, array_column($this->bans, 'mask'))) {
@@ -343,10 +343,10 @@ class Channel {
     }
     
     /**
-     * Entfernt einen Ban
+     * Removes a ban
      * 
-     * @param string $mask Die zu entfernende Ban-Maske
-     * @return bool Erfolg der Operation
+     * @param string $mask The ban mask to be removed
+     * @return bool Success of the operation
      */
     public function removeBan(string $mask): bool {
         foreach ($this->bans as $key => $ban) {
@@ -361,26 +361,26 @@ class Channel {
     }
     
     /**
-     * Gibt alle Bans zurück
+     * Returns all bans
      * 
-     * @return array Die Bans
+     * @return array The bans
      */
     public function getBans(): array {
         return $this->bans;
     }
     
     /**
-     * Prüft, ob ein Benutzer gebannt ist
+     * Checks if a user is banned
      * 
-     * @param User $user Der zu prüfende Benutzer
-     * @return bool Ob der Benutzer gebannt ist
+     * @param User $user The user to be checked
+     * @return bool Whether the user is banned
      */
     public function isBanned(User $user): bool {
         $hostmask = $user->getNick() . '!' . $user->getIdent() . '@' . $user->getCloak();
         
         foreach ($this->bans as $ban) {
             if ($this->matchesMask($hostmask, $ban['mask'])) {
-                // Prüfen, ob es eine Ban-Exception gibt
+                // Check if there is a ban exception
                 if ($this->hasExceptionFor($user)) {
                     return false;
                 }
@@ -392,10 +392,10 @@ class Channel {
     }
     
     /**
-     * Prüft, ob ein Benutzer eine Ban-Exception hat
+     * Checks if a user has a ban exception
      * 
-     * @param User $user Der zu prüfende Benutzer
-     * @return bool Ob der Benutzer eine Exception hat
+     * @param User $user The user to be checked
+     * @return bool Whether the user has an exception
      */
     public function hasExceptionFor(User $user): bool {
         $hostmask = $user->getNick() . '!' . $user->getIdent() . '@' . $user->getCloak();
@@ -410,28 +410,23 @@ class Channel {
     }
     
     /**
-     * Prüft, ob ein Hostmask einer Maske entspricht
+     * Checks if a hostmask matches a mask
      * 
-     * @param string $hostmask Der zu prüfende Hostmask
-     * @param string $mask Die Maske
-     * @return bool Ob der Hostmask der Maske entspricht
+     * @param string $hostmask The hostmask to be checked
+     * @param string $mask The mask
+     * @return bool Whether the hostmask matches the mask
      */
     private function matchesMask(string $hostmask, string $mask): bool {
-        $pattern = str_replace(
-            ['*', '?', '.'],
-            ['.*', '.', '\\.'],
-            $mask
-        );
-        
-        return (bool)preg_match('/^' . $pattern . '$/i', $hostmask);
+        $regex = '/^' . str_replace(['*', '?'], ['.*', '.'], preg_quote($mask, '/')) . '$/';
+        return (bool)preg_match($regex, $hostmask);
     }
     
     /**
-     * Fügt eine Ban-Exception hinzu
+     * Adds a ban exception
      * 
-     * @param string $mask Die Exception-Maske
-     * @param string $by Wer die Exception gesetzt hat
-     * @return bool Erfolg der Operation
+     * @param string $mask The exception mask
+     * @param string $by Who set the exception
+     * @return bool Success of the operation
      */
     public function addBanException(string $mask, string $by): bool {
         if (in_array($mask, array_column($this->banExceptions, 'mask'))) {
@@ -448,10 +443,10 @@ class Channel {
     }
     
     /**
-     * Entfernt eine Ban-Exception
+     * Removes a ban exception
      * 
-     * @param string $mask Die zu entfernende Exception-Maske
-     * @return bool Erfolg der Operation
+     * @param string $mask The exception mask to be removed
+     * @return bool Success of the operation
      */
     public function removeBanException(string $mask): bool {
         foreach ($this->banExceptions as $key => $exception) {
@@ -466,38 +461,38 @@ class Channel {
     }
     
     /**
-     * Gibt alle Ban-Exceptions zurück
+     * Returns all ban exceptions
      * 
-     * @return array Die Ban-Exceptions
+     * @return array The ban exceptions
      */
     public function getBanExceptions(): array {
         return $this->banExceptions;
     }
     
     /**
-     * Prüft, ob ein Benutzer dem Kanal beitreten kann
+     * Checks if a user can join the channel
      * 
-     * @param User $user Der zu prüfende Benutzer
-     * @param string|null $key Optional: Der vom Benutzer angegebene Key
-     * @return bool Ob der Benutzer beitreten kann
+     * @param User $user The user to be checked
+     * @param string|null $key Optional: The key provided by the user
+     * @return bool Whether the user can join
      */
     public function canJoin(User $user, ?string $key = null): bool {
-        // Prüfen, ob der Benutzer gebannt ist
+        // Check if the user is banned
         if ($this->isBanned($user)) {
             return false;
         }
         
-        // Prüfen, ob der Kanal voll ist
+        // Check if the channel is full
         if ($this->limit > 0 && count($this->users) >= $this->limit) {
             return false;
         }
         
-        // Prüfen, ob der Kanal invite-only ist
+        // Check if the channel is invite-only
         if ($this->inviteOnly && !$this->isInvited($user)) {
             return false;
         }
         
-        // Prüfen, ob ein Key erforderlich ist
+        // Check if a key is required
         if ($this->key !== null && $key !== $this->key) {
             return false;
         }
@@ -506,11 +501,11 @@ class Channel {
     }
     
     /**
-     * Lädt einen Benutzer in den Kanal ein
+     * Invites a user to the channel
      * 
-     * @param string $mask Die Einladungs-Maske
-     * @param string $by Wer die Einladung ausgesprochen hat
-     * @return bool Erfolg der Operation
+     * @param string $mask The invitation mask
+     * @param string $by Who issued the invitation
+     * @return bool Success of the operation
      */
     public function invite(string $mask, string $by): bool {
         if (in_array($mask, array_column($this->inviteExceptions, 'mask'))) {
@@ -527,10 +522,10 @@ class Channel {
     }
     
     /**
-     * Prüft, ob ein Benutzer eingeladen ist
+     * Checks if a user is invited
      * 
-     * @param User $user Der zu prüfende Benutzer
-     * @return bool Ob der Benutzer eingeladen ist
+     * @param User $user The user to be checked
+     * @return bool Whether the user is invited
      */
     public function isInvited(User $user): bool {
         $hostmask = $user->getNick() . '!' . $user->getIdent() . '@' . $user->getCloak();
@@ -545,9 +540,9 @@ class Channel {
     }
     
     /**
-     * Gibt zurück, wann der Kanal erstellt wurde
+     * Returns when the channel was created
      * 
-     * @return int Der Unix-Timestamp
+     * @return int The Unix timestamp
      */
     public function getCreationTime(): int {
         return $this->created;

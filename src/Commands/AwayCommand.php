@@ -6,13 +6,13 @@ use PhpIrcd\Models\User;
 
 class AwayCommand extends CommandBase {
     /**
-     * Führt den AWAY-Befehl aus
+     * Executes the AWAY command
      * 
-     * @param User $user Der ausführende Benutzer
-     * @param array $args Die Befehlsargumente
+     * @param User $user The executing user
+     * @param array $args The command arguments
      */
     public function execute(User $user, array $args): void {
-        // Sicherstellen, dass der Benutzer registriert ist
+        // Ensure that the user is registered
         if (!$this->ensureRegistered($user)) {
             return;
         }
@@ -20,22 +20,22 @@ class AwayCommand extends CommandBase {
         $config = $this->server->getConfig();
         $nick = $user->getNick();
         
-        // Wenn kein Parameter angegeben ist, AWAY-Status zurücksetzen
+        // If no parameter is provided, reset AWAY status
         if (!isset($args[1])) {
             $user->setAway(null);
             $user->send(":{$config['name']} 305 {$nick} :You are no longer marked as being away");
             return;
         }
         
-        // AWAY-Nachricht extrahieren
+        // Extract AWAY message
         $message = $this->getMessagePart($args, 1);
         
-        // Wenn die Nachricht mit : beginnt, das Zeichen entfernen
+        // If the message starts with :, remove the character
         if (isset($message[0]) && $message[0] === ':') {
             $message = substr($message, 1);
         }
         
-        // AWAY-Status setzen
+        // Set AWAY status
         $user->setAway($message);
         $user->send(":{$config['name']} 306 {$nick} :You have been marked as being away");
     }

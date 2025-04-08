@@ -6,18 +6,18 @@ use PhpIrcd\Models\User;
 
 class PrivmsgCommand extends CommandBase {
     /**
-     * Führt den PRIVMSG-Befehl aus
+     * Executes the PRIVMSG command
      * 
-     * @param User $user Der ausführende Benutzer
-     * @param array $args Die Befehlsargumente
+     * @param User $user The executing user
+     * @param array $args The command arguments
      */
     public function execute(User $user, array $args): void {
-        // Sicherstellen, dass der Benutzer registriert ist
+        // Ensure the user is registered
         if (!$this->ensureRegistered($user)) {
             return;
         }
         
-        // Prüfen, ob genügend Parameter vorhanden sind
+        // Check if enough parameters are provided
         if (!isset($args[1])) {
             $this->sendError($user, 'PRIVMSG', 'No recipient given', 411);
             return;
@@ -28,37 +28,37 @@ class PrivmsgCommand extends CommandBase {
             return;
         }
         
-        // Ziele extrahieren
+        // Extract targets
         $targets = explode(',', $args[1]);
         $message = $this->getMessagePart($args, 2);
         
-        // Nachricht an alle Ziele senden
+        // Send message to all targets
         foreach ($targets as $target) {
             $this->sendMessage($user, $target, $message);
         }
     }
     
     /**
-     * Sendet eine Nachricht an ein Ziel
+     * Sends a message to a target
      * 
-     * @param User $user Der sendende Benutzer
-     * @param string $target Das Ziel (Benutzer oder Kanal)
-     * @param string $message Die Nachricht
+     * @param User $user The sending user
+     * @param string $target The target (user or channel)
+     * @param string $message The message
      */
     private function sendMessage(User $user, string $target, string $message): void {
         $config = $this->server->getConfig();
         $nick = $user->getNick();
         
-        // Kanalname beginnt mit #
+        // Channel name starts with #
         if ($target[0] === '#') {
             $this->sendChannelMessage($user, $target, $message);
             return;
         }
         
-        // Sonst an einen Benutzer senden
+        // Otherwise send to a user
         $targetUser = null;
         
-        // Benutzer suchen
+        // Search for user
         foreach ($this->server->getUsers() as $serverUser) {
             if ($serverUser->getNick() !== null && strtolower($serverUser->getNick()) === strtolower($target)) {
                 $targetUser = $serverUser;
@@ -66,61 +66,61 @@ class PrivmsgCommand extends CommandBase {
             }
         }
         
-        // Wenn Benutzer nicht gefunden wurde, Fehler senden
+        // If user not found, send error
         if ($targetUser === null) {
             $user->send(":{$config['name']} 401 {$nick} {$target} :No such nick/channel");
             return;
         }
         
-        // Wenn der Zielbenutzer away ist, eine Meldung senden
+        // If the target user is away, send a message
         if ($targetUser->isAway()) {
             $awayMessage = $targetUser->getAwayMessage();
             $user->send(":{$config['name']} 301 {$nick} {$target} :{$awayMessage}");
         }
         
-        // Nachricht an den Zielbenutzer senden
+        // Send message to the target user
         $targetUser->send(":{$nick}!{$user->getIdent()}@{$user->getCloak()} PRIVMSG {$target} :{$message}");
     }
     
     /**
-     * Sendet eine Nachricht an einen Kanal
+     * Sends a message to a channel
      * 
-     * @param User $user Der sendende Benutzer
-     * @param string $channelName Der Kanalname
-     * @param string $message Die Nachricht
+     * @param User $user The sending user
+     * @param string $channelName The channel name
+     * @param string $message The message
      */
     private function sendChannelMessage(User $user, string $channelName, string $message): void {
         $config = $this->server->getConfig();
         $nick = $user->getNick();
         
-        // Kanal suchen
+        // Search for channel
         $channel = $this->server->getChannel($channelName);
         
-        // Wenn Kanal nicht gefunden wurde, Fehler senden
+        // If channel not found, send error
         if ($channel === null) {
             $user->send(":{$config['name']} 401 {$nick} {$channelName} :No such nick/channel");
             return;
         }
         
-        // Prüfen, ob der Benutzer im Kanal ist
+        // Check if the user is in the channel
         if (!$channel->hasUser($user)) {
             $user->send(":{$config['name']} 404 {$nick} {$channelName} :Cannot send to channel");
             return;
         }
         
-        // Prüfen, ob der Kanal im no-external-messages Modus ist
+        // Check if the channel is in no-external-messages mode
         if ($channel->hasMode('n') && !$channel->hasUser($user)) {
             $user->send(":{$config['name']} 404 {$nick} {$channelName} :Cannot send to channel");
             return;
         }
         
-        // Prüfen, ob der Kanal im moderated Modus ist und der Benutzer keine Voice hat
+        // Check if the channel is in moderated mode and the user has no voice
         if ($channel->hasMode('m') && !$channel->isVoiced($user) && !$channel->isOperator($user)) {
             $user->send(":{$config['name']} 404 {$nick} {$channelName} :Cannot send to channel");
             return;
         }
         
-        // Nachricht an alle Benutzer im Kanal senden (außer dem Sender)
+        // Send message to all users in the channel (except the sender)
         $message = ":{$nick}!{$user->getIdent()}@{$user->getCloak()} PRIVMSG {$channelName} :{$message}";
         foreach ($channel->getUsers() as $channelUser) {
             if ($channelUser !== $user) {

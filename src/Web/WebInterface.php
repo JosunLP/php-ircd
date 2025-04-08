@@ -4,20 +4,21 @@ namespace PhpIrcd\Web;
 
 use PhpIrcd\Core\Config;
 use PhpIrcd\Utils\Logger;
+use Exception;
 
 /**
- * WebInterface-Klasse für die Bereitstellung einer Webschnittstelle zum IRC-Server
+ * WebInterface class for providing a web interface to the IRC server
  */
 class WebInterface {
     private $config;
     private $logger;
     private $serverSocketFile;
-    private $sessionTimeout = 300; // 5 Minuten Timeout für Sessions
+    private $sessionTimeout = 300; // 5 minutes timeout for sessions
     
     /**
-     * Konstruktor
+     * Constructor
      * 
-     * @param Config $config Die Konfiguration
+     * @param Config $config The configuration
      */
     public function __construct($config) {
         $this->config = $config;
@@ -26,13 +27,13 @@ class WebInterface {
     }
     
     /**
-     * Verarbeitet die Webanfrage
+     * Processes the web request
      */
     public function handleRequest(): void {
-        // Session starten
+        // Start session
         session_start();
         
-        // Anfrage-Typ bestimmen
+        // Determine request type
         $action = $_GET['action'] ?? 'view';
         
         switch ($action) {
@@ -58,14 +59,14 @@ class WebInterface {
     }
     
     /**
-     * Zeigt die Web-Benutzeroberfläche an
+     * Displays the web user interface
      */
     private function showInterface(): void {
-        // Prüfen, ob der Server läuft
+        // Check if the server is running
         $serverRunning = $this->isServerRunning();
         
         echo '<!DOCTYPE html>
-        <html lang="de">
+        <html lang="en">
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -172,15 +173,15 @@ class WebInterface {
             <div class="container">
                 <h1>PHP-IRCd Web Interface</h1>
                 <div class="status ' . ($serverRunning ? 'running' : 'stopped') . '">
-                    Server-Status: ' . ($serverRunning ? 'Läuft' : 'Gestoppt') . '
+                    Server Status: ' . ($serverRunning ? 'Running' : 'Stopped') . '
                 </div>';
         
         if (!$serverRunning) {
-            echo '<p>Der IRC-Server ist nicht gestartet. Bitte starten Sie ihn über die Kommandozeile mit <code>php index.php</code>.</p>';
+            echo '<p>The IRC server is not started. Please start it via the command line with <code>php index.php</code>.</p>';
         } else {
             echo '<div id="clientInterface">
                     <div id="connectForm" ' . (isset($_SESSION['irc_connected']) ? 'class="hidden"' : '') . '>
-                        <h2>Mit IRC-Server verbinden</h2>
+                        <h2>Connect to IRC Server</h2>
                         <form id="connectionForm" action="?action=connect" method="post">
                             <div>
                                 <label for="nickname">Nickname:</label>
@@ -194,33 +195,33 @@ class WebInterface {
                                 <label for="realname">Realname:</label>
                                 <input type="text" id="realname" name="realname" required>
                             </div>
-                            <button type="submit" class="btn">Verbinden</button>
+                            <button type="submit" class="btn">Connect</button>
                         </form>
                     </div>
                     
                     <div id="chatInterface" ' . (!isset($_SESSION['irc_connected']) ? 'class="hidden"' : '') . '>
-                        <h2>IRC-Chat</h2>
+                        <h2>IRC Chat</h2>
                         <div class="grid">
                             <div id="chat"></div>
                             <div id="userList">
-                                <h3>Benutzer</h3>
+                                <h3>Users</h3>
                                 <ul id="users"></ul>
                             </div>
                         </div>
                         <form id="messageForm" action="?action=send" method="post">
-                            <input type="text" id="messageInput" name="message" placeholder="Nachricht eingeben..." required>
-                            <button type="submit" class="btn">Senden</button>
+                            <input type="text" id="messageInput" name="message" placeholder="Enter message..." required>
+                            <button type="submit" class="btn">Send</button>
                         </form>
                         <div id="commands">
-                            <h3>Befehle</h3>
-                            <p><code>/join #kanal</code> - Einem Kanal beitreten</p>
-                            <p><code>/part #kanal</code> - Einen Kanal verlassen</p>
-                            <p><code>/nick neuerName</code> - Nickname ändern</p>
-                            <p><code>/msg Benutzer Nachricht</code> - Private Nachricht senden</p>
-                            <p><code>/quit [Grund]</code> - Verbindung trennen</p>
+                            <h3>Commands</h3>
+                            <p><code>/join #channel</code> - Join a channel</p>
+                            <p><code>/part #channel</code> - Leave a channel</p>
+                            <p><code>/nick newName</code> - Change nickname</p>
+                            <p><code>/msg user message</code> - Send private message</p>
+                            <p><code>/quit [reason]</code> - Disconnect</p>
                         </div>
                         <form id="disconnectForm" action="?action=disconnect" method="post">
-                            <button type="submit" class="btn danger">Verbindung trennen</button>
+                            <button type="submit" class="btn danger">Disconnect</button>
                         </form>
                     </div>
                 </div>';
@@ -228,7 +229,7 @@ class WebInterface {
         
         echo '</div>
             <script>
-                // JavaScript für die Client-Logik
+                // JavaScript for client logic
                 document.addEventListener("DOMContentLoaded", function() {
                     const chatInterface = document.getElementById("chatInterface");
                     const connectForm = document.getElementById("connectForm");
@@ -237,7 +238,7 @@ class WebInterface {
                     const chatWindow = document.getElementById("chat");
                     const userList = document.getElementById("users");
                     
-                    // Verbindungsformular absenden
+                    // Submit connection form
                     if (connectionForm) {
                         connectionForm.addEventListener("submit", function(e) {
                             e.preventDefault();
@@ -254,13 +255,13 @@ class WebInterface {
                                     chatInterface.classList.remove("hidden");
                                     startMessagePolling();
                                 } else {
-                                    alert("Verbindungsfehler: " + data.message);
+                                    alert("Connection error: " + data.message);
                                 }
                             });
                         });
                     }
                     
-                    // Nachrichtenformular absenden
+                    // Submit message form
                     if (messageForm) {
                         messageForm.addEventListener("submit", function(e) {
                             e.preventDefault();
@@ -278,34 +279,34 @@ class WebInterface {
                                 if (data.success) {
                                     document.getElementById("messageInput").value = "";
                                 } else {
-                                    alert("Fehler beim Senden: " + data.message);
+                                    alert("Error sending message: " + data.message);
                                 }
                             });
                         });
                     }
                     
-                    // Regelmäßiges Abrufen neuer Nachrichten
+                    // Regularly fetch new messages
                     function startMessagePolling() {
                         setInterval(function() {
                             fetch("?action=receive")
                             .then(response => response.json())
                             .then(data => {
                                 if (data.success) {
-                                    // Neue Nachrichten anzeigen
+                                    // Display new messages
                                     data.messages.forEach(msg => {
                                         addMessage(msg.text, msg.type);
                                     });
                                     
-                                    // Benutzerliste aktualisieren
+                                    // Update user list
                                     if (data.users) {
                                         updateUserList(data.users);
                                     }
                                 }
                             });
-                        }, 1000); // Alle 1 Sekunde aktualisieren
+                        }, 1000); // Update every 1 second
                     }
                     
-                    // Nachricht zur Chat-Anzeige hinzufügen
+                    // Add message to chat display
                     function addMessage(text, type = "system") {
                         const msgElement = document.createElement("div");
                         msgElement.className = "message " + type;
@@ -314,7 +315,7 @@ class WebInterface {
                         chatWindow.scrollTop = chatWindow.scrollHeight;
                     }
                     
-                    // Benutzerliste aktualisieren
+                    // Update user list
                     function updateUserList(users) {
                         userList.innerHTML = "";
                         users.forEach(user => {
@@ -324,7 +325,7 @@ class WebInterface {
                         });
                     }
                     
-                    // Wenn bereits verbunden, Nachrichtenabfrage starten
+                    // If already connected, start message polling
                     if (chatInterface && !chatInterface.classList.contains("hidden")) {
                         startMessagePolling();
                     }
@@ -335,13 +336,13 @@ class WebInterface {
     }
     
     /**
-     * Verarbeitet eine Verbindungsanfrage
+     * Processes a connection request
      */
     private function handleConnect(): void {
         header('Content-Type: application/json');
         
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            echo json_encode(['success' => false, 'message' => 'Nur POST-Anfragen sind erlaubt']);
+            echo json_encode(['success' => false, 'message' => 'Only POST requests are allowed']);
             return;
         }
         
@@ -350,57 +351,58 @@ class WebInterface {
         $realname = $_POST['realname'] ?? '';
         
         if (empty($nickname) || empty($username) || empty($realname)) {
-            echo json_encode(['success' => false, 'message' => 'Alle Felder müssen ausgefüllt sein']);
+            echo json_encode(['success' => false, 'message' => 'All fields must be filled']);
             return;
         }
         
         try {
-            // Mit dem IRC-Server verbinden
+            // Connect to the IRC server
             $socket = $this->connectToServer();
             
             if (!$socket) {
-                echo json_encode(['success' => false, 'message' => 'Verbindung zum IRC-Server fehlgeschlagen']);
+                echo json_encode(['success' => false, 'message' => 'Failed to connect to IRC server']);
                 return;
             }
             
-            // Benutzerdaten senden
+            // Send user data
             fwrite($socket, "NICK {$nickname}\r\n");
             fwrite($socket, "USER {$username} 0 * :{$realname}\r\n");
             
-            // Socket in der Session speichern
+            // Store socket in session
             $_SESSION['irc_socket'] = base64_encode(serialize($socket));
             $_SESSION['irc_connected'] = true;
             $_SESSION['irc_nickname'] = $nickname;
             $_SESSION['irc_last_activity'] = time();
             $_SESSION['irc_buffer'] = [];
             
+            $this->logger->info("Web client connected: {$nickname}");
             echo json_encode(['success' => true]);
-            $this->logger->info("Web-Client verbunden: {$nickname}");
         } catch (Exception $e) {
+            $this->logger->error("Connection error: " . $e->getMessage());
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
     }
     
     /**
-     * Verarbeitet eine Nachrichtenanfrage
+     * Processes a message request
      */
     private function handleSend(): void {
         header('Content-Type: application/json');
         
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            echo json_encode(['success' => false, 'message' => 'Nur POST-Anfragen sind erlaubt']);
+            echo json_encode(['success' => false, 'message' => 'Only POST requests are allowed']);
             return;
         }
         
         if (!isset($_SESSION['irc_connected']) || !$_SESSION['irc_connected']) {
-            echo json_encode(['success' => false, 'message' => 'Nicht mit dem IRC-Server verbunden']);
+            echo json_encode(['success' => false, 'message' => 'Not connected to IRC server']);
             return;
         }
         
         $message = $_POST['message'] ?? '';
         
         if (empty($message)) {
-            echo json_encode(['success' => false, 'message' => 'Leere Nachricht']);
+            echo json_encode(['success' => false, 'message' => 'Empty message']);
             return;
         }
         
@@ -408,11 +410,11 @@ class WebInterface {
             $socket = $this->getSocketFromSession();
             
             if (!$socket) {
-                echo json_encode(['success' => false, 'message' => 'Socket-Verbindung verloren']);
+                echo json_encode(['success' => false, 'message' => 'Socket connection lost']);
                 return;
             }
             
-            // Befehle verarbeiten
+            // Process commands
             if ($message[0] === '/') {
                 $parts = explode(' ', substr($message, 1));
                 $command = strtoupper($parts[0]);
@@ -441,7 +443,7 @@ class WebInterface {
                             $msgText = implode(' ', array_slice($parts, 2));
                             fwrite($socket, "PRIVMSG {$target} :{$msgText}\r\n");
                             
-                            // Eigene Nachricht im Chat anzeigen
+                            // Display own message in chat
                             $_SESSION['irc_buffer'][] = [
                                 'text' => "-> {$target}: {$msgText}",
                                 'type' => 'user'
@@ -454,22 +456,22 @@ class WebInterface {
                         $this->closeConnection();
                         break;
                     default:
-                        // Unbekannten Befehl direkt senden
+                        // Send unknown command directly
                         fwrite($socket, substr($message, 1) . "\r\n");
                         break;
                 }
             } else {
-                // Als Nachricht an den aktuellen Channel senden, wenn nicht im Channel dann Fehler
+                // Send as message to current channel, if not in channel then error
                 if (isset($_SESSION['irc_current_channel'])) {
                     fwrite($socket, "PRIVMSG {$_SESSION['irc_current_channel']} :{$message}\r\n");
                     
-                    // Eigene Nachricht im Chat anzeigen
+                    // Display own message in chat
                     $_SESSION['irc_buffer'][] = [
                         'text' => "{$_SESSION['irc_nickname']}: {$message}",
                         'type' => 'user'
                     ];
                 } else {
-                    echo json_encode(['success' => false, 'message' => 'Sie müssen zuerst einem Channel beitreten']);
+                    echo json_encode(['success' => false, 'message' => 'You must first join a channel']);
                     return;
                 }
             }
@@ -479,18 +481,19 @@ class WebInterface {
             
             echo json_encode(['success' => true]);
         } catch (Exception $e) {
+            $this->logger->error("Send error: " . $e->getMessage());
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
     }
     
     /**
-     * Verarbeitet eine Anfrage nach neuen Nachrichten
+     * Processes a request for new messages
      */
     private function handleReceive(): void {
         header('Content-Type: application/json');
         
         if (!isset($_SESSION['irc_connected']) || !$_SESSION['irc_connected']) {
-            echo json_encode(['success' => false, 'message' => 'Nicht mit dem IRC-Server verbunden']);
+            echo json_encode(['success' => false, 'message' => 'Not connected to IRC server']);
             return;
         }
         
@@ -498,39 +501,39 @@ class WebInterface {
             $socket = $this->getSocketFromSession();
             
             if (!$socket) {
-                echo json_encode(['success' => false, 'message' => 'Socket-Verbindung verloren']);
+                echo json_encode(['success' => false, 'message' => 'Socket connection lost']);
                 return;
             }
             
-            // Auf neue Daten prüfen
+            // Check for new data
             $read = [$socket];
             $write = null;
             $except = null;
             $messages = [];
             $users = [];
             
-            // Gepufferte Nachrichten abrufen
+            // Retrieve buffered messages
             if (isset($_SESSION['irc_buffer']) && !empty($_SESSION['irc_buffer'])) {
                 $messages = $_SESSION['irc_buffer'];
                 $_SESSION['irc_buffer'] = [];
             }
             
-            // Auf neue Daten prüfen (non-blocking)
-            if (stream_select($read, $write, $except, 0, 200000)) { // 0.2 Sekunden Timeout
+            // Check for new data (non-blocking)
+            if (stream_select($read, $write, $except, 0, 200000)) { // 0.2 seconds timeout
                 foreach ($read as $socket) {
                     $data = fgets($socket, 4096);
                     
                     if ($data === false || feof($socket)) {
-                        // Verbindung verloren
+                        // Connection lost
                         $this->closeConnection();
                         echo json_encode([
                             'success' => false, 
-                            'message' => 'Verbindung zum IRC-Server verloren'
+                            'message' => 'Connection to IRC server lost'
                         ]);
                         return;
                     }
                     
-                    // Nachricht parsen und verarbeiten
+                    // Parse and process message
                     $message = trim($data);
                     if (!empty($message)) {
                         $this->processIrcMessage($message, $messages, $users);
@@ -547,19 +550,20 @@ class WebInterface {
                 'users' => $users
             ]);
         } catch (Exception $e) {
+            $this->logger->error("Receive error: " . $e->getMessage());
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
     }
     
     /**
-     * Verarbeitet eine IRC-Nachricht
+     * Processes an IRC message
      * 
-     * @param string $message Die IRC-Nachricht
-     * @param array &$messages Array für ausgehende Nachrichten
-     * @param array &$users Array für die Benutzerliste
+     * @param string $message The IRC message
+     * @param array &$messages Array for outgoing messages
+     * @param array &$users Array for the user list
      */
     private function processIrcMessage(string $message, array &$messages, array &$users): void {
-        // Nachrichtenteile extrahieren
+        // Extract message parts
         $prefix = '';
         if ($message[0] === ':') {
             $prefixEnd = strpos($message, ' ');
@@ -582,22 +586,22 @@ class WebInterface {
             $params[] = $trailing;
         }
         
-        // Verschiedene IRC-Befehle verarbeiten
+        // Process various IRC commands
         switch ($command) {
             case 'PING':
-                // Automatisch mit PONG antworten
+                // Automatically respond with PONG
                 $socket = $this->getSocketFromSession();
                 fwrite($socket, "PONG :{$params[0]}\r\n");
                 $_SESSION['irc_socket'] = base64_encode(serialize($socket));
                 break;
                 
             case 'PRIVMSG':
-                // Chat-Nachricht
+                // Chat message
                 $sender = explode('!', $prefix)[0];
                 $target = $params[0];
                 $text = $params[1];
                 
-                // Nur anzeigen, wenn an den aktuellen Channel oder an uns direkt
+                // Only display if directed to the current channel or directly to us
                 if ($target === $_SESSION['irc_nickname'] || 
                     (isset($_SESSION['irc_current_channel']) && $target === $_SESSION['irc_current_channel'])) {
                     $messages[] = [
@@ -608,40 +612,40 @@ class WebInterface {
                 break;
                 
             case 'JOIN':
-                // Jemand betritt einen Channel
+                // Someone joins a channel
                 $sender = explode('!', $prefix)[0];
                 $channel = $params[0];
                 
                 if ($sender === $_SESSION['irc_nickname']) {
-                    // Wir sind dem Channel beigetreten
+                    // We joined the channel
                     $_SESSION['irc_current_channel'] = $channel;
                 }
                 
                 $messages[] = [
-                    'text' => "{$sender} hat {$channel} betreten",
+                    'text' => "{$sender} joined {$channel}",
                     'type' => 'system'
                 ];
                 break;
                 
             case 'PART':
             case 'QUIT':
-                // Jemand verlässt einen Channel oder den Server
+                // Someone leaves a channel or the server
                 $sender = explode('!', $prefix)[0];
-                $reason = isset($params[1]) ? $params[1] : "Keine Begründung";
+                $reason = isset($params[1]) ? $params[1] : "No reason";
                 
                 $messages[] = [
-                    'text' => "{$sender} hat den Chat verlassen: {$reason}",
+                    'text' => "{$sender} left the chat: {$reason}",
                     'type' => 'system'
                 ];
                 break;
                 
             case 'NICK':
-                // Jemand ändert seinen Nickname
+                // Someone changes their nickname
                 $oldNick = explode('!', $prefix)[0];
                 $newNick = $params[0];
                 
                 $messages[] = [
-                    'text' => "{$oldNick} heißt jetzt {$newNick}",
+                    'text' => "{$oldNick} is now known as {$newNick}",
                     'type' => 'system'
                 ];
                 
@@ -651,24 +655,24 @@ class WebInterface {
                 break;
                 
             case '353': // RPL_NAMREPLY
-                // Benutzerliste für einen Channel
+                // User list for a channel
                 $channel = $params[2];
                 $userList = explode(' ', $params[3]);
                 
-                // Wenn es um den aktuellen Channel geht, Benutzerliste aktualisieren
+                // If it's about the current channel, update user list
                 if (isset($_SESSION['irc_current_channel']) && $channel === $_SESSION['irc_current_channel']) {
                     $users = array_merge($users, $userList);
                 }
                 break;
                 
             case '332': // RPL_TOPIC
-                // Channel-Thema
+                // Channel topic
                 $channel = $params[1];
                 $topic = $params[2];
                 
                 if (isset($_SESSION['irc_current_channel']) && $channel === $_SESSION['irc_current_channel']) {
                     $messages[] = [
-                        'text' => "Thema für {$channel}: {$topic}",
+                        'text' => "Topic for {$channel}: {$topic}",
                         'type' => 'system'
                     ];
                 }
@@ -689,7 +693,7 @@ class WebInterface {
             case '375': // RPL_MOTDSTART
             case '372': // RPL_MOTD
             case '376': // RPL_ENDOFMOTD
-                // Serverinformationen anzeigen
+                // Display server information
                 $messages[] = [
                     'text' => "Server: " . (isset($params[1]) ? $params[1] : $trailing),
                     'type' => 'system'
@@ -697,7 +701,7 @@ class WebInterface {
                 break;
                 
             default:
-                // Alle anderen Nachrichten als System-Nachricht anzeigen
+                // Display all other messages as system messages
                 if (!empty($prefix)) {
                     $messages[] = [
                         'text' => "IRC: {$prefix} {$command} " . implode(' ', $params),
@@ -714,21 +718,16 @@ class WebInterface {
     }
     
     /**
-     * Verarbeitet eine Anfrage zum Trennen der Verbindung
+     * Processes a request to disconnect
      */
     private function handleDisconnect(): void {
         header('Content-Type: application/json');
-        
-        if (!isset($_SESSION['irc_connected']) || !$_SESSION['irc_connected']) {
-            echo json_encode(['success' => false, 'message' => 'Nicht mit dem IRC-Server verbunden']);
-            return;
-        }
         
         try {
             $socket = $this->getSocketFromSession();
             
             if ($socket) {
-                // QUIT-Befehl senden
+                // Send QUIT command
                 fwrite($socket, "QUIT :Web client disconnected\r\n");
                 fclose($socket);
             }
@@ -736,55 +735,61 @@ class WebInterface {
             $this->closeConnection();
             echo json_encode(['success' => true]);
         } catch (Exception $e) {
+            $this->logger->error("Disconnect error: " . $e->getMessage());
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
     }
     
     /**
-     * Verarbeitet eine Anfrage zum Serverstatusabruf
+     * Processes a request to retrieve server status
      */
     private function handleStatus(): void {
         header('Content-Type: application/json');
         
-        $running = $this->isServerRunning();
-        echo json_encode([
-            'success' => true,
-            'running' => $running,
-            'uptime' => $running ? $this->getServerUptime() : 0
-        ]);
+        try {
+            $running = $this->isServerRunning();
+            echo json_encode([
+                'success' => true,
+                'running' => $running,
+                'uptime' => $running ? $this->getServerUptime() : 0
+            ]);
+        } catch (Exception $e) {
+            $this->logger->error("Status error: " . $e->getMessage());
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
     }
     
     /**
-     * Stellt eine Verbindung zum IRC-Server her
+     * Establishes a connection to the IRC server
      * 
-     * @return resource|false Die Socket-Verbindung oder false bei Fehler
+     * @return resource|false The socket connection or false on error
      */
     private function connectToServer() {
-        // Versuchen, lokal zu verbinden
+        // Attempt to connect locally
         $socket = @fsockopen('127.0.0.1', $this->config->get('port', 6667), $errno, $errstr, 5);
         
         if (!$socket) {
-            $this->logger->error("Verbindung zum IRC-Server fehlgeschlagen: {$errstr} ({$errno})");
+            $this->logger->error("Failed to connect to IRC server: {$errstr} ({$errno})");
             return false;
         }
         
-        // Non-blocking setzen
+        // Set non-blocking
         stream_set_blocking($socket, false);
         
         return $socket;
     }
     
     /**
-     * Holt das Socket-Objekt aus der Session
+     * Retrieves the socket object from the session
      * 
-     * @return resource|false Das Socket-Objekt oder false bei Fehler
+     * @return resource|false The socket object or false on error
      */
     private function getSocketFromSession() {
         if (!isset($_SESSION['irc_socket'])) {
             return false;
         }
         
-        // Inaktivität prüfen
+        // Check inactivity
         if (time() - $_SESSION['irc_last_activity'] > $this->sessionTimeout) {
             $this->closeConnection();
             return false;
@@ -794,46 +799,101 @@ class WebInterface {
     }
     
     /**
-     * Schließt die IRC-Verbindung und bereinigt die Session
+     * Closes the IRC connection and cleans up the session
      */
     private function closeConnection(): void {
-        if (isset($_SESSION['irc_socket'])) {
-            $socket = unserialize(base64_decode($_SESSION['irc_socket']));
-            if (is_resource($socket)) {
-                fclose($socket);
+        try {
+            if (isset($_SESSION['irc_socket'])) {
+                $socket = unserialize(base64_decode($_SESSION['irc_socket']));
+                if (is_resource($socket)) {
+                    fclose($socket);
+                }
             }
+            
+            // Reset session variables
+            unset($_SESSION['irc_socket']);
+            unset($_SESSION['irc_connected']);
+            unset($_SESSION['irc_nickname']);
+            unset($_SESSION['irc_current_channel']);
+            unset($_SESSION['irc_buffer']);
+            unset($_SESSION['irc_last_activity']);
+        } catch (Exception $e) {
+            $this->logger->error("Error closing connection: " . $e->getMessage());
         }
-        
-        // Session-Variablen zurücksetzen
-        unset($_SESSION['irc_socket']);
-        unset($_SESSION['irc_connected']);
-        unset($_SESSION['irc_nickname']);
-        unset($_SESSION['irc_current_channel']);
-        unset($_SESSION['irc_buffer']);
-        unset($_SESSION['irc_last_activity']);
     }
     
     /**
-     * Prüft, ob der IRC-Server läuft
+     * Checks if the IRC server is running
      * 
-     * @return bool Ob der Server läuft
+     * @return bool Whether the server is running
      */
     private function isServerRunning(): bool {
         $socket = @fsockopen('127.0.0.1', $this->config->get('port', 6667), $errno, $errstr, 1);
         if ($socket) {
-            fclose($socket);
+            if (is_resource($socket)) {
+                fclose($socket);
+            }
             return true;
         }
         return false;
     }
     
     /**
-     * Gibt die Uptime des IRC-Servers zurück
+     * Returns the uptime of the IRC server
      * 
-     * @return int Die Uptime in Sekunden oder 0 bei Fehler
+     * @return int The uptime in seconds or 0 on error
      */
     private function getServerUptime(): int {
-        // In einer realen Implementierung müsste dies über einen speziellen IRC-Befehl abgefragt werden
-        return 0;
+        try {
+            $socket = $this->connectToServer();
+            
+            if (!$socket) {
+                return 0;
+            }
+            
+            // Send a VERSION request to get server information
+            fwrite($socket, "VERSION\r\n");
+            
+            // Wait for response with timeout
+            $read = [$socket];
+            $write = null;
+            $except = null;
+            $startTime = 0;
+            
+            // Attempt to read server startup time from response
+            if (stream_select($read, $write, $except, 2, 0)) { // 2-second timeout
+                while (($line = fgets($socket)) !== false) {
+                    $line = trim($line);
+                    
+                    // Look for 003 message which contains server creation time
+                    if (preg_match('/^:[^ ]+ 003 [^ ]+ :This server was created ([^)]+)/', $line, $matches)) {
+                        $serverStartTime = strtotime($matches[1]);
+                        if ($serverStartTime > 0) {
+                            $startTime = $serverStartTime;
+                            break;
+                        }
+                    }
+                    
+                    // Break if end of response
+                    if (strpos($line, '366') !== false || empty($line)) {
+                        break;
+                    }
+                }
+            }
+            
+            // Close the socket
+            fclose($socket);
+            
+            // Calculate uptime
+            if ($startTime > 0) {
+                return time() - $startTime;
+            }
+            
+            // Fallback: return an indication that server is running but uptime is unknown
+            return 1;
+        } catch (Exception $e) {
+            $this->logger->error("Error getting server uptime: " . $e->getMessage());
+            return 0;
+        }
     }
 }

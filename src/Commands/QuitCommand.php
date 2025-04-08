@@ -6,19 +6,19 @@ use PhpIrcd\Models\User;
 
 class QuitCommand extends CommandBase {
     /**
-     * Führt den QUIT-Befehl aus
+     * Executes the QUIT command
      * 
-     * @param User $user Der ausführende Benutzer
-     * @param array $args Die Befehlsargumente
+     * @param User $user The executing user
+     * @param array $args The command arguments
      */
     public function execute(User $user, array $args): void {
-        // Abschiedsnachricht extrahieren oder Standardnachricht setzen
+        // Extract farewell message or set default message
         $message = isset($args[1]) ? $this->getMessagePart($args, 1) : "Client Quit";
         
-        // Verbindungshandler holen
+        // Get connection handler
         $connectionHandler = $this->server->getConnectionHandler();
         
-        // Benutzer trennen
+        // Disconnect user
         $connectionHandler->disconnectUser($user, $message);
     }
 }

@@ -6,20 +6,20 @@ use PhpIrcd\Models\User;
 
 class PongCommand extends CommandBase {
     /**
-     * Führt den PONG-Befehl aus
+     * Executes the PONG command
      * 
-     * @param User $user Der ausführende Benutzer
-     * @param array $args Die Befehlsargumente
+     * @param User $user The executing user
+     * @param array $args The command arguments
      */
     public function execute(User $user, array $args): void {
-        // Bei PONG muss mindestens ein Parameter vorhanden sein
+        // PONG must have at least one parameter
         if (!isset($args[1])) {
-            // In der Praxis senden wir hier keinen Fehler, da manche Clients
-            // nicht standardkonforme PONG-Antworten senden
+            // In practice, we do not send an error here because some clients
+            // send non-standard PONG responses
             return;
         }
         
-        // Aktualisiere die letzte Aktivitätszeit des Benutzers
+        // Update the user's last activity time
         $user->updateActivity();
     }
 }

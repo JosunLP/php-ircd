@@ -6,26 +6,26 @@ use PhpIrcd\Models\User;
 
 class PingCommand extends CommandBase {
     /**
-     * Führt den PING-Befehl aus
+     * Executes the PING command
      * 
-     * @param User $user Der ausführende Benutzer
-     * @param array $args Die Befehlsargumente
+     * @param User $user The executing user
+     * @param array $args The command arguments
      */
     public function execute(User $user, array $args): void {
-        // Bei PING muss mindestens ein Parameter vorhanden sein
+        // At least one parameter must be present for PING
         if (!isset($args[1])) {
             $this->sendError($user, 'PING', 'Not enough parameters', 461);
             return;
         }
         
-        // PING-Antwort mit PONG senden
+        // Send PING response with PONG
         $target = $args[1];
         $server = $this->server->getConfig()['name'];
         
-        // Der zweite Parameter ist optional
+        // The second parameter is optional
         $origin = isset($args[2]) ? $args[2] : $server;
         
-        // PONG-Nachricht senden (RFC 1459)
+        // Send PONG message (RFC 1459)
         $user->send(":{$server} PONG {$server} :{$target}");
     }
 }

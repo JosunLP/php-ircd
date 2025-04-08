@@ -1,6 +1,6 @@
 {
     "name": "php-ircd/server",
-    "description": "Modernisierter IRC Server in PHP",
+    "description": "Modernized IRC server in PHP",
     "type": "project",
     "require": {
         "php": "^8.0"
@@ -16,6 +16,6 @@
             "email": "me@danopia.net",
             "role": "Original Author"
         }
-    ],
+    },
     "license": "MIT"
 }

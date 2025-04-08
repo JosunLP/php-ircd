@@ -6,27 +6,27 @@ use PhpIrcd\Models\User;
 
 class PartCommand extends CommandBase {
     /**
-     * Führt den PART-Befehl aus
+     * Executes the PART command
      * 
-     * @param User $user Der ausführende Benutzer
-     * @param array $args Die Befehlsargumente
+     * @param User $user The executing user
+     * @param array $args The command arguments
      */
     public function execute(User $user, array $args): void {
-        // Sicherstellen, dass der Benutzer registriert ist
+        // Ensure the user is registered
         if (!$this->ensureRegistered($user)) {
             return;
         }
         
-        // Prüfen, ob genügend Parameter vorhanden sind
+        // Check if enough parameters are provided
         if (!isset($args[1])) {
             $this->sendError($user, 'PART', 'Not enough parameters', 461);
             return;
         }
         
-        // Kanalnamen extrahieren
+        // Extract channel names
         $channelNames = explode(',', $args[1]);
         
-        // Partgrund extrahieren (optional)
+        // Extract part reason (optional)
         $reason = $this->getMessagePart($args, 2);
         if (empty($reason)) {
             $reason = "Leaving";
@@ -38,39 +38,39 @@ class PartCommand extends CommandBase {
     }
     
     /**
-     * Lässt einen Benutzer einen Kanal verlassen
+     * Allows a user to leave a channel
      * 
-     * @param User $user Der Benutzer
-     * @param string $channelName Der Kanalname
-     * @param string $reason Der Grund für das Verlassen
+     * @param User $user The user
+     * @param string $channelName The channel name
+     * @param string $reason The reason for leaving
      */
     private function partChannel(User $user, string $channelName, string $reason): void {
         $config = $this->server->getConfig();
         $nick = $user->getNick();
         
-        // Prüfen, ob der Kanal existiert
+        // Check if the channel exists
         $channel = $this->server->getChannel($channelName);
         if ($channel === null) {
             $user->send(":{$config['name']} 403 {$nick} {$channelName} :No such channel");
             return;
         }
         
-        // Prüfen, ob der Benutzer im Kanal ist
+        // Check if the user is in the channel
         if (!$channel->hasUser($user)) {
             $user->send(":{$config['name']} 442 {$nick} {$channelName} :You're not on that channel");
             return;
         }
         
-        // PART-Nachricht an alle Benutzer im Kanal senden
+        // Send PART message to all users in the channel
         $partMessage = ":{$nick}!{$user->getIdent()}@{$user->getCloak()} PART {$channelName} :{$reason}";
         foreach ($channel->getUsers() as $channelUser) {
             $channelUser->send($partMessage);
         }
         
-        // Benutzer aus dem Kanal entfernen
+        // Remove user from the channel
         $channel->removeUser($user);
         
-        // Wenn der Kanal leer ist, ihn entfernen
+        // If the channel is empty, remove it
         if (count($channel->getUsers()) === 0) {
             $this->server->removeChannel($channelName);
         }

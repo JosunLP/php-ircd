@@ -6,13 +6,13 @@ use PhpIrcd\Models\User;
 
 class NickCommand extends CommandBase {
     /**
-     * Führt den NICK-Befehl aus
+     * Executes the NICK command
      * 
-     * @param User $user Der ausführende Benutzer
-     * @param array $args Die Befehlsargumente
+     * @param User $user The executing user
+     * @param array $args The command arguments
      */
     public function execute(User $user, array $args): void {
-        // Prüfen, ob ein Nickname angegeben wurde
+        // Check if a nickname was provided
         if (!isset($args[1])) {
             $this->sendError($user, 'NICK', 'No nickname given', 431);
             return;
@@ -20,18 +20,18 @@ class NickCommand extends CommandBase {
         
         $newNick = $args[1];
         
-        // Manchmal senden Clients :nick statt nick
+        // Sometimes clients send :nick instead of nick
         if (strpos($newNick, ':') === 0) {
             $newNick = substr($newNick, 1);
         }
         
-        // Validierung des Nicknames
+        // Validate the nickname
         if (!$this->validateNick($newNick)) {
             $this->sendError($user, $newNick, 'Erroneous Nickname: You fail.', 432);
             return;
         }
         
-        // Prüfen, ob der Nickname bereits in Benutzung ist
+        // Check if the nickname is already in use
         $users = $this->server->getUsers();
         foreach ($users as $existingUser) {
             if ($existingUser !== $user && 
@@ -45,24 +45,24 @@ class NickCommand extends CommandBase {
         
         $oldNick = $user->getNick();
         
-        // Wenn dies der erste NICK-Befehl ist (Registrierung)
+        // If this is the first NICK command (registration)
         if ($oldNick === null) {
             $user->setNick($newNick);
             
-            // Falls der User sich vollständig registriert hat, eine PING-Anfrage senden
+            // If the user is fully registered, send a PING request
             if ($user->isRegistered()) {
                 $user->send("PING :{$this->server->getConfig()['name']}");
             }
         } else {
-            // Bei Nickname-Änderung alle relevanten Kanäle benachrichtigen
+            // Notify all relevant channels about the nickname change
             $user->setNick($newNick);
             
-            $notifiedUsers = [$user]; // Bereits benachrichtigte Benutzer
+            $notifiedUsers = [$user]; // Users already notified
             
-            // Alle Kanäle durchlaufen, in denen der Benutzer ist
+            // Iterate through all channels the user is in
             foreach ($this->server->getChannels() as $channel) {
                 if ($channel->hasUser($user)) {
-                    // Alle Benutzer im Kanal benachrichtigen
+                    // Notify all users in the channel
                     foreach ($channel->getUsers() as $channelUser) {
                         if (!in_array($channelUser, $notifiedUsers, true)) {
                             $channelUser->send(":{$oldNick}!{$user->getIdent()}@{$user->getCloak()} NICK {$newNick}");
@@ -75,13 +75,13 @@ class NickCommand extends CommandBase {
     }
     
     /**
-     * Validiert einen Nickname anhand der IRC-Regeln
+     * Validates a nickname according to IRC rules
      * 
-     * @param string $nick Der zu prüfende Nickname
-     * @return bool Ob der Nickname gültig ist
+     * @param string $nick The nickname to validate
+     * @return bool Whether the nickname is valid
      */
     private function validateNick(string $nick): bool {
-        // IRC-Nickname-Regeln: Buchstaben, Zahlen, Sonderzeichen, max. 30 Zeichen
+        // IRC nickname rules: letters, numbers, special characters, max. 30 characters
         return preg_match('/^[a-zA-Z\[\]_|`^][a-zA-Z0-9\[\]_|`^]{0,29}$/', $nick) === 1;
     }
 }
