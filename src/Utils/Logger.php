@@ -72,6 +72,16 @@ class Logger {
     }
     
     /**
+     * Sets the log level
+     * 
+     * @param int $logLevel The new log level (0=Error, 1=Warning, 2=Info, 3=Debug)
+     */
+    public function setLogLevel(int $logLevel): void {
+        $this->logLevel = $logLevel;
+        $this->debug("Log level changed to {$logLevel}");
+    }
+    
+    /**
      * Logs a message with the specified log level
      * 
      * @param string $message The message to log

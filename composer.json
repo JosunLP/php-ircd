@@ -15,6 +15,32 @@
             "name": "Daniel Danopia",
             "email": "me@danopia.net",
             "role": "Original Author"
+        },
+        {
+            "name": "Zhaofeng Li",
+            "homepage": "https://zhaofeng.li/",
+            "role": "Contributor"
+        },
+        {
+            "name": "Easton Elliott",
+            "homepage": "https://github.com/snacsnoc",
+            "role": "Contributor"
+        },
+        {
+            "name": "Avram Lyon",
+            "homepage": "https://github.com/avram",
+            "role": "Contributor"
+        },
+        {
+            "name": "henrikhjelm",
+            "homepage": "https://github.com/henrikhjelm",
+            "role": "Contributor"
+        },
+        {
+            "name": "Jonas Pfalzgraf - JosunLP",
+            "homepage": "https://josunlp.de",
+            "email": "support@josunlp.de",
+            "role": "Contributor"
         }
     ],
     "minimum-stability": "stable",

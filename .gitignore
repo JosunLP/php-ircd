@@ -29,3 +29,5 @@ Thumbs.db
 # PHPUnit
 /phpunit.xml
 .phpunit.result.cache
+
+/storage/*

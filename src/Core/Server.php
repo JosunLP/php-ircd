@@ -15,6 +15,7 @@ class Server {
     private $logger;
     private $connectionHandler;
     private $storageDir;
+    private $startTime;
     private $isWebMode = false;
     
     /**
@@ -26,6 +27,7 @@ class Server {
     public function __construct(array $config, bool $webMode = false) {
         $this->config = $config;
         $this->isWebMode = $webMode;
+        $this->startTime = time();
         
         // Initialize logger
         $logFile = $config['log_file'] ?? 'ircd.log';
@@ -560,5 +562,44 @@ class Server {
      */
     public function getLogger(): Logger {
         return $this->logger;
+    }
+    
+    /**
+     * Get the server start time
+     * 
+     * @return int Unix timestamp of when the server was started
+     */
+    public function getStartTime(): int {
+        return $this->startTime;
+    }
+    
+    /**
+     * Update the server configuration
+     * 
+     * @param array $newConfig The new configuration
+     */
+    public function updateConfig(array $newConfig): void {
+        // Speichere die Originalwerte für Einstellungen, die nicht während der Laufzeit
+        // geändert werden sollten oder die spezifisch für diese Server-Instanz sind
+        $preservedSettings = [
+            'bind_ip' => $this->config['bind_ip'] ?? '127.0.0.1', 
+            'port' => $this->config['port'] ?? 6667,
+            'ssl_enabled' => $this->config['ssl_enabled'] ?? false,
+            'ssl_cert' => $this->config['ssl_cert'] ?? '',
+            'ssl_key' => $this->config['ssl_key'] ?? '',
+            'storage_dir' => $this->config['storage_dir'] ?? $this->storageDir,
+            'log_file' => $this->config['log_file'] ?? 'ircd.log',
+            'log_to_console' => $this->config['log_to_console'] ?? true,
+        ];
+        
+        // Aktualisiere die Konfiguration, aber behalte die geschützten Einstellungen bei
+        $this->config = array_merge($newConfig, $preservedSettings);
+        
+        // Aktualisiere Log-Level, wenn sich dieser geändert hat
+        if (isset($newConfig['log_level']) && $this->logger) {
+            $this->logger->setLogLevel($newConfig['log_level']);
+        }
+        
+        $this->logger->info("Server configuration updated");
     }
 }

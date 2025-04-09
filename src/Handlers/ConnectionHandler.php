@@ -9,6 +9,7 @@ use PhpIrcd\Models\Channel;
 class ConnectionHandler {
     private $server;
     private $commandHandlers = [];
+    private $commandCounts = [];
     private $inactivityTimeout = 240; // 4 minutes inactivity timeout
     
     /**
@@ -47,6 +48,10 @@ class ConnectionHandler {
         $this->registerCommandHandler('WHO', new \PhpIrcd\Commands\WhoCommand($this->server));
         $this->registerCommandHandler('MOTD', new \PhpIrcd\Commands\MotdCommand($this->server));
         $this->registerCommandHandler('CAP', new \PhpIrcd\Commands\CapCommand($this->server));
+        $this->registerCommandHandler('VERSION', new \PhpIrcd\Commands\VersionCommand($this->server));
+        $this->registerCommandHandler('TIME', new \PhpIrcd\Commands\TimeCommand($this->server));
+        $this->registerCommandHandler('STATS', new \PhpIrcd\Commands\StatsCommand($this->server));
+        $this->registerCommandHandler('REHASH', new \PhpIrcd\Commands\RehashCommand($this->server));
     }
     
     /**
@@ -177,6 +182,12 @@ class ConnectionHandler {
         $parts = explode(' ', $data);
         $command = strtoupper($parts[0]);
         
+        // Track command usage
+        if (!isset($this->commandCounts[$command])) {
+            $this->commandCounts[$command] = 0;
+        }
+        $this->commandCounts[$command]++;
+        
         // Handle command
         if (isset($this->commandHandlers[$command])) {
             $this->commandHandlers[$command]->execute($user, $parts);
@@ -241,5 +252,14 @@ class ConnectionHandler {
         
         // Remove user from the server
         $this->server->removeUser($user);
+    }
+    
+    /**
+     * Get command usage statistics
+     * 
+     * @return array Command usage counts
+     */
+    public function getCommandCounts(): array {
+        return $this->commandCounts;
     }
 }

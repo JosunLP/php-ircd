@@ -92,12 +92,12 @@ class User {
                 $data = @socket_read($this->socket, $maxLen);
             }
             
-            // Wenn false oder leerer String, ist die Verbindung wahrscheinlich geschlossen
-            if ($data === false || $data === '') {
+            // Wenn false, ist die Verbindung wahrscheinlich geschlossen
+            if ($data === false) {
                 return false;
             }
             
-            // Daten zum Buffer hinzufügen
+            // Daten zum Buffer hinzufügen (auch leere Strings, die für die Verarbeitung wichtig sein können)
             $this->buffer .= $data;
             
             // Wenn der Buffer eine neue Zeile enthält, den ersten Befehl zurückgeben
