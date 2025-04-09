@@ -46,6 +46,7 @@ class ConnectionHandler {
         $this->registerCommandHandler('NAMES', new \PhpIrcd\Commands\NamesCommand($this->server));
         $this->registerCommandHandler('WHO', new \PhpIrcd\Commands\WhoCommand($this->server));
         $this->registerCommandHandler('MOTD', new \PhpIrcd\Commands\MotdCommand($this->server));
+        $this->registerCommandHandler('CAP', new \PhpIrcd\Commands\CapCommand($this->server));
     }
     
     /**
@@ -61,24 +62,52 @@ class ConnectionHandler {
     /**
      * Accepts new connections
      * 
-     * @param \Socket $serverSocket The server socket
+     * @param mixed $serverSocket The server socket (can be a Socket resource or a stream resource)
      */
-    public function acceptNewConnections(\Socket $serverSocket): void {
-        $newSocket = socket_accept($serverSocket);
-        if ($newSocket !== false) {
-            try {
-                // Determine the IP address of the new user
-                socket_getpeername($newSocket, $ip);
-                
-                // Create a new user
-                $user = new User($newSocket, $ip);
-                
-                // Send welcome messages
-                $this->sendWelcomeMessages($user);
-            } catch (\Exception $e) {
-                $this->server->getLogger()->error("Error accepting connection: " . $e->getMessage());
-                if ($newSocket instanceof \Socket) {
-                    socket_close($newSocket);
+    public function acceptNewConnections($serverSocket): void {
+        // Check if we're dealing with a stream socket (SSL) or regular socket
+        $isStreamSocket = !($serverSocket instanceof \Socket);
+        
+        if ($isStreamSocket) {
+            // Handle stream socket (SSL)
+            $newSocket = @stream_socket_accept($serverSocket, 0); // Non-blocking accept
+            
+            if ($newSocket !== false) {
+                try {
+                    // Get the peer name for the stream socket
+                    $peerName = stream_socket_get_name($newSocket, true);
+                    $ip = parse_url($peerName, PHP_URL_HOST) ?: explode(':', $peerName)[0];
+                    
+                    // Create a new user
+                    $user = new User($newSocket, $ip, true); // Pass true to indicate it's a stream socket
+                    
+                    // Send welcome messages
+                    $this->sendWelcomeMessages($user);
+                } catch (\Exception $e) {
+                    $this->server->getLogger()->error("Error accepting stream connection: " . $e->getMessage());
+                    if (is_resource($newSocket)) {
+                        fclose($newSocket);
+                    }
+                }
+            }
+        } else {
+            // Handle regular socket
+            $newSocket = socket_accept($serverSocket);
+            if ($newSocket !== false) {
+                try {
+                    // Determine the IP address of the new user
+                    socket_getpeername($newSocket, $ip);
+                    
+                    // Create a new user
+                    $user = new User($newSocket, $ip);
+                    
+                    // Send welcome messages
+                    $this->sendWelcomeMessages($user);
+                } catch (\Exception $e) {
+                    $this->server->getLogger()->error("Error accepting connection: " . $e->getMessage());
+                    if ($newSocket instanceof \Socket) {
+                        socket_close($newSocket);
+                    }
                 }
             }
         }

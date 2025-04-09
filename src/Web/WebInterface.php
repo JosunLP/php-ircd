@@ -219,6 +219,12 @@ class WebInterface {
                             <p><code>/part #channel</code> - Leave a channel</p>
                             <p><code>/nick newName</code> - Change nickname</p>
                             <p><code>/msg user message</code> - Send private message</p>
+                            <p><code>/who #channel</code> - List users in a channel</p>
+                            <p><code>/whois nickname</code> - Display information about a user</p>
+                            <p><code>/list</code> - List all available channels</p>
+                            <p><code>/topic #channel [new topic]</code> - View or set channel topic</code></p>
+                            <p><code>/away [message]</code> - Set or remove away status</p>
+                            <p><code>/mode #channel +/-modes</code> - Set or remove channel modes</p>
                             <p><code>/quit [reason]</code> - Disconnect</p>
                         </div>
                         <form id="disconnectForm" action="?action=disconnect" method="post">
@@ -767,8 +773,33 @@ class WebInterface {
      * @return resource|false The socket connection or false on error
      */
     private function connectToServer() {
-        // Attempt to connect locally
-        $socket = @fsockopen('127.0.0.1', $this->config->get('port', 6667), $errno, $errstr, 5);
+        // Überprüfen, ob SSL aktiviert ist
+        $useSSL = $this->config->get('ssl_enabled', false);
+        $port = $this->config->get('port', 6667);
+        
+        if ($useSSL) {
+            // SSL-Kontext erstellen
+            $context = stream_context_create([
+                'ssl' => [
+                    'verify_peer' => false,
+                    'verify_peer_name' => false,
+                    'allow_self_signed' => true
+                ]
+            ]);
+            
+            // Sichere Verbindung herstellen
+            $socket = @stream_socket_client(
+                "ssl://127.0.0.1:{$port}", 
+                $errno, 
+                $errstr, 
+                5, 
+                STREAM_CLIENT_CONNECT,
+                $context
+            );
+        } else {
+            // Normale Verbindung herstellen
+            $socket = @fsockopen('127.0.0.1', $port, $errno, $errstr, 5);
+        }
         
         if (!$socket) {
             $this->logger->error("Failed to connect to IRC server: {$errstr} ({$errno})");

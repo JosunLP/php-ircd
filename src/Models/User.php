@@ -14,24 +14,33 @@ class User {
     private $cloak;
     private $registered = false;
     private $lastActivity;
+    private $connectTime;  // Neu: Verbindungszeit speichern
     private $modes = [];
     private $away = null;
+    private $isStreamSocket = false; // Flag für Stream-Socket (SSL)
     
     /**
      * Constructor
      * 
-     * @param \Socket $socket The user's connection
+     * @param mixed $socket The user's connection (Socket or stream resource)
      * @param string $ip The user's IP address
+     * @param bool $isStreamSocket Whether the socket is a stream socket (SSL)
      */
-    public function __construct($socket, string $ip) {
+    public function __construct($socket, string $ip, bool $isStreamSocket = false) {
         $this->socket = $socket;
         $this->ip = $ip;
         $this->host = $this->lookupHostname($ip);
         $this->cloak = $this->host; // Initial value, can be changed later
         $this->lastActivity = time();
+        $this->connectTime = time();  // Neu: Zeitpunkt der Verbindung setzen
+        $this->isStreamSocket = $isStreamSocket;
         
         // Set socket to non-blocking
-        socket_set_nonblock($this->socket);
+        if ($isStreamSocket) {
+            stream_set_blocking($this->socket, false);
+        } else {
+            socket_set_nonblock($this->socket);
+        }
     }
     
     /**
@@ -53,8 +62,15 @@ class User {
      */
     public function send(string $data): bool {
         try {
-            $result = socket_write($this->socket, $data . "\r\n");
-            return $result !== false;
+            if ($this->isStreamSocket) {
+                // Stream-Sockets (SSL) verwenden fwrite
+                $result = @fwrite($this->socket, $data . "\r\n");
+                return $result !== false;
+            } else {
+                // Normale Sockets verwenden socket_write
+                $result = @socket_write($this->socket, $data . "\r\n");
+                return $result !== false;
+            }
         } catch (\Exception $e) {
             return false;
         }
@@ -68,26 +84,31 @@ class User {
      */
     public function read(int $maxLen = 512) {
         try {
-            // Read data from the socket
-            $data = @socket_read($this->socket, $maxLen);
+            if ($this->isStreamSocket) {
+                // Stream-Sockets (SSL) lesen
+                $data = @fread($this->socket, $maxLen);
+            } else {
+                // Normale Sockets lesen
+                $data = @socket_read($this->socket, $maxLen);
+            }
             
-            // If false or empty string, the connection is likely closed
+            // Wenn false oder leerer String, ist die Verbindung wahrscheinlich geschlossen
             if ($data === false || $data === '') {
                 return false;
             }
             
-            // Add data to the buffer
+            // Daten zum Buffer hinzufügen
             $this->buffer .= $data;
             
-            // If the buffer contains a newline, return the first command
+            // Wenn der Buffer eine neue Zeile enthält, den ersten Befehl zurückgeben
             $pos = strpos($this->buffer, "\n");
             if ($pos !== false) {
                 $command = substr($this->buffer, 0, $pos);
                 $this->buffer = substr($this->buffer, $pos + 1);
-                return trim($command); // Remove control characters
+                return trim($command); // Steuerzeichen entfernen
             }
             
-            // No complete command available
+            // Kein vollständiger Befehl verfügbar
             return '';
         } catch (\Exception $e) {
             return false;
@@ -98,8 +119,14 @@ class User {
      * Close connection
      */
     public function disconnect(): void {
-        if ($this->socket instanceof \Socket) {
-            socket_close($this->socket);
+        if ($this->isStreamSocket) {
+            if (is_resource($this->socket)) {
+                @fclose($this->socket);
+            }
+        } else {
+            if ($this->socket instanceof \Socket) {
+                @socket_close($this->socket);
+            }
         }
     }
     
@@ -284,5 +311,14 @@ class User {
      */
     public function getAwayMessage(): ?string {
         return $this->away;
+    }
+
+    /**
+     * Returns the timestamp when the user connected
+     * 
+     * @return int The Unix timestamp
+     */
+    public function getConnectTime(): int {
+        return $this->connectTime;
     }
 }

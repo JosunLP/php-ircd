@@ -68,38 +68,84 @@ class Server {
     private function createSocket(): void {
         $this->logger->info("Creating socket...");
         
-        // Create socket
-        $this->socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
-        if ($this->socket === false) {
-            $errorCode = socket_last_error();
-            $errorMsg = socket_strerror($errorCode);
-            $this->logger->error("Failed to create socket: {$errorCode} - {$errorMsg}");
-            die("Failed to create socket: {$errorCode} - {$errorMsg}");
+        // Check if SSL is enabled
+        $useSSL = !empty($this->config['ssl_enabled']) && $this->config['ssl_enabled'] === true;
+        
+        if ($useSSL) {
+            // Create SSL context if SSL is enabled
+            if (empty($this->config['ssl_cert']) || empty($this->config['ssl_key'])) {
+                $this->logger->error("SSL is enabled but certificate or key is missing");
+                die("SSL is enabled but certificate or key is missing");
+            }
+            
+            $this->logger->info("Creating SSL socket...");
+            
+            // Create SSL context
+            $context = stream_context_create([
+                'ssl' => [
+                    'local_cert' => $this->config['ssl_cert'],
+                    'local_pk' => $this->config['ssl_key'],
+                    'verify_peer' => false,
+                    'verify_peer_name' => false,
+                    'allow_self_signed' => true
+                ]
+            ]);
+            
+            // Create the socket
+            $socket = @stream_socket_server(
+                "ssl://{$this->config['bind_ip']}:{$this->config['port']}", 
+                $errno, 
+                $errstr, 
+                STREAM_SERVER_BIND | STREAM_SERVER_LISTEN,
+                $context
+            );
+            
+            if (!$socket) {
+                $this->logger->error("Failed to create SSL socket: {$errno} - {$errstr}");
+                die("Failed to create SSL socket: {$errno} - {$errstr}");
+            }
+            
+            // Convert to socket resource
+            $this->socket = $socket;
+            
+            // Set socket to non-blocking mode
+            stream_set_blocking($this->socket, false);
+            
+            $this->logger->info("SSL Server running on {$this->config['bind_ip']}:{$this->config['port']}");
+        } else {
+            // Create a regular socket (non-SSL)
+            $this->socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
+            if ($this->socket === false) {
+                $errorCode = socket_last_error();
+                $errorMsg = socket_strerror($errorCode);
+                $this->logger->error("Failed to create socket: {$errorCode} - {$errorMsg}");
+                die("Failed to create socket: {$errorCode} - {$errorMsg}");
+            }
+            
+            // Set socket options
+            socket_set_option($this->socket, SOL_SOCKET, SO_REUSEADDR, 1);
+            
+            // Bind socket
+            if (!socket_bind($this->socket, $this->config['bind_ip'], $this->config['port'])) {
+                $errorCode = socket_last_error();
+                $errorMsg = socket_strerror($errorCode);
+                $this->logger->error("Failed to bind socket: {$errorCode} - {$errorMsg}");
+                die("Failed to bind socket: {$errorCode} - {$errorMsg}");
+            }
+            
+            // Set socket to listen
+            if (!socket_listen($this->socket, $this->config['max_users'])) {
+                $errorCode = socket_last_error();
+                $errorMsg = socket_strerror($errorCode);
+                $this->logger->error("Failed to set socket to listen: {$errorCode} - {$errorMsg}");
+                die("Failed to set socket to listen: {$errorCode} - {$errorMsg}");
+            }
+            
+            // Set non-blocking mode
+            socket_set_nonblock($this->socket);
+            
+            $this->logger->info("Server running on {$this->config['bind_ip']}:{$this->config['port']}");
         }
-        
-        // Set socket options
-        socket_set_option($this->socket, SOL_SOCKET, SO_REUSEADDR, 1);
-        
-        // Bind socket
-        if (!socket_bind($this->socket, $this->config['bind_ip'], $this->config['port'])) {
-            $errorCode = socket_last_error();
-            $errorMsg = socket_strerror($errorCode);
-            $this->logger->error("Failed to bind socket: {$errorCode} - {$errorMsg}");
-            die("Failed to bind socket: {$errorCode} - {$errorMsg}");
-        }
-        
-        // Set socket to listen
-        if (!socket_listen($this->socket, $this->config['max_users'])) {
-            $errorCode = socket_last_error();
-            $errorMsg = socket_strerror($errorCode);
-            $this->logger->error("Failed to set socket to listen: {$errorCode} - {$errorMsg}");
-            die("Failed to set socket to listen: {$errorCode} - {$errorMsg}");
-        }
-        
-        // Set non-blocking mode
-        socket_set_nonblock($this->socket);
-        
-        $this->logger->info("Server running on {$this->config['bind_ip']}:{$this->config['port']}");
     }
     
     /**
@@ -264,8 +310,29 @@ class Server {
      * @param Channel $channel The channel to save
      */
     public function saveChannelState(Channel $channel): void {
-        // Serialize the channel object
-        $serialized = serialize($channel);
+        // Temporäre Kopie des Kanals erstellen, um Socket-Referenzen zu entfernen
+        $tempChannel = clone $channel;
+        $tempUsers = [];
+        
+        // Ersetze User-Objekte mit Referenz-Identifikatoren
+        foreach ($tempChannel->getUsers() as $key => $user) {
+            $tempUsers[$key] = [
+                'nick' => $user->getNick(),
+                'ident' => $user->getIdent(),
+                'host' => $user->getHost(),
+                'ref_id' => spl_object_id($user)
+            ];
+        }
+        
+        // Speichere die temporäre Benutzerreferenz
+        $tempChannelVars = get_object_vars($tempChannel);
+        $tempChannelVars['_userRefs'] = $tempUsers;
+        
+        // Setze Users auf ein leeres Array für die Serialisierung
+        $tempChannelVars['users'] = [];
+        
+        // Serialisiere die modifizierte Kopie
+        $serialized = serialize($tempChannelVars);
         $filename = $this->getChannelFilename($channel->getName());
         
         try {
@@ -302,9 +369,39 @@ class Server {
         
         try {
             $serialized = file_get_contents($filename);
-            $channel = unserialize($serialized);
+            $channelData = unserialize($serialized);
             
-            if ($channel instanceof Channel) {
+            if (is_array($channelData) && isset($channelData['name'])) {
+                // Erstelle einen neuen Kanal
+                $channel = new Channel($channelData['name']);
+                
+                // Übertrage die gespeicherten Eigenschaften
+                foreach ($channelData as $key => $value) {
+                    // Übertrage keine speziellen Eigenschaften
+                    if (!in_array($key, ['name', 'users', '_userRefs'])) {
+                        $reflectionProperty = new \ReflectionProperty(Channel::class, $key);
+                        $reflectionProperty->setAccessible(true);
+                        $reflectionProperty->setValue($channel, $value);
+                    }
+                }
+                
+                // Benutzerliste wiederherstellen, wenn verfügbar
+                if (isset($channelData['_userRefs']) && is_array($channelData['_userRefs'])) {
+                    foreach ($channelData['_userRefs'] as $userRef) {
+                        // Suche Benutzer anhand des Nicknamens
+                        foreach ($this->users as $user) {
+                            if ($user->getNick() === $userRef['nick'] && 
+                                $user->getIdent() === $userRef['ident'] && 
+                                $user->getHost() === $userRef['host']) {
+                                
+                                // Füge den Benutzer zum Kanal hinzu
+                                $channel->addUser($user);
+                                break;
+                            }
+                        }
+                    }
+                }
+                
                 $this->logger->debug("Channel state loaded: {$channelName}");
                 return $channel;
             }
@@ -454,5 +551,14 @@ class Server {
      */
     public function isWebMode(): bool {
         return $this->isWebMode;
+    }
+    
+    /**
+     * Get the logger instance
+     * 
+     * @return Logger The logger instance
+     */
+    public function getLogger(): Logger {
+        return $this->logger;
     }
 }
