@@ -27,6 +27,7 @@ class ConnectionHandler {
      */
     private function initCommandHandlers(): void {
         // Register command handlers
+        $this->registerCommandHandler('PASS', new \PhpIrcd\Commands\PassCommand($this->server));
         $this->registerCommandHandler('NICK', new \PhpIrcd\Commands\NickCommand($this->server));
         $this->registerCommandHandler('USER', new \PhpIrcd\Commands\UserCommand($this->server));
         $this->registerCommandHandler('QUIT', new \PhpIrcd\Commands\QuitCommand($this->server));

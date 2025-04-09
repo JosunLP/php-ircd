@@ -97,7 +97,7 @@ class User {
                 return false;
             }
             
-            // Daten zum Buffer hinzufügen (auch leere Strings, die für die Verarbeitung wichtig sein können)
+            // Daten zum Buffer hinzufügen (auch leere Strings)
             $this->buffer .= $data;
             
             // Wenn der Buffer eine neue Zeile enthält, den ersten Befehl zurückgeben
@@ -106,6 +106,11 @@ class User {
                 $command = substr($this->buffer, 0, $pos);
                 $this->buffer = substr($this->buffer, $pos + 1);
                 return trim($command); // Steuerzeichen entfernen
+            } elseif ($pos = strpos($this->buffer, "\r")) {
+                // Manche IRC-Clients senden nur \r als Zeilenende
+                $command = substr($this->buffer, 0, $pos);
+                $this->buffer = substr($this->buffer, $pos + 1);
+                return trim($command);
             }
             
             // Kein vollständiger Befehl verfügbar
