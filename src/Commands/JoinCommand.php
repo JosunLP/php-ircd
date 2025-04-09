@@ -163,18 +163,17 @@ class JoinCommand extends CommandBase {
         // Channel name must start with #, &, + or ! (We support only # for simplicity)
         // Must be between 2-50 characters
         // Cannot contain spaces, commas, control characters, or other special characters
-        // Regular IRC allows more complex channel names, but we're simplifying for our implementation
         if (strlen($channelName) < 2 || strlen($channelName) > 50) {
             return false;
         }
         
-        // Check first character
+        // Check first character - must be #
         if ($channelName[0] !== '#') {
             return false;
         }
         
         // Check for invalid characters
-        $invalidChars = [' ', ',', "\x07", "\x00", "\r", "\n", "\t"];
+        $invalidChars = [' ', ',', "\x07", "\x00", "\r", "\n", "\t", "\v", "\f"];
         foreach ($invalidChars as $char) {
             if (strpos($channelName, $char) !== false) {
                 return false;

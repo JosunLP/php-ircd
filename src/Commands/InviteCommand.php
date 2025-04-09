@@ -71,10 +71,10 @@ class InviteCommand extends CommandBase {
         }
         
         // Add user to invite list
-        $channel->addInvite($targetUser);
+        $channel->invite($targetUser->getNick() . '!' . $targetUser->getIdent() . '@' . $targetUser->getCloak(), $nick);
         
         // Send invite notification to target user
-        $targetUser->send(":{$nick}!{$user->getIdent()}@{$user->getCloak()} INVITE {$nickname} :{$channelName}");
+        $targetUser->send(":{$nick}!{$user->getIdent()}@{$user->getCloak()} INVITE {$nickname} {$channelName}");
         
         // Send confirmation to the inviting user
         $user->send(":{$config['name']} 341 {$nick} {$nickname} {$channelName}");

@@ -14,6 +14,7 @@ class WebInterface {
     private $logger;
     private $serverSocketFile;
     private $sessionTimeout = 300; // 5 minutes timeout for sessions
+    private static $activeSockets = []; // Static array to store active socket connections
     
     /**
      * Constructor
@@ -368,8 +369,12 @@ class WebInterface {
             fwrite($socket, "NICK {$nickname}\r\n");
             fwrite($socket, "USER {$username} 0 * :{$realname}\r\n");
             
-            // Store socket in session
-            $_SESSION['irc_socket'] = base64_encode(serialize($socket));
+            // Generate unique socket ID and store in static array
+            $socketId = uniqid('sock_', true);
+            self::$activeSockets[$socketId] = $socket;
+            
+            // Store socket ID in session
+            $_SESSION['irc_socket_id'] = $socketId;
             $_SESSION['irc_connected'] = true;
             $_SESSION['irc_nickname'] = $nickname;
             $_SESSION['irc_last_activity'] = time();
@@ -476,7 +481,6 @@ class WebInterface {
                 }
             }
             
-            $_SESSION['irc_socket'] = base64_encode(serialize($socket));
             $_SESSION['irc_last_activity'] = time();
             
             echo json_encode(['success' => true]);
@@ -541,7 +545,6 @@ class WebInterface {
                 }
             }
             
-            $_SESSION['irc_socket'] = base64_encode(serialize($socket));
             $_SESSION['irc_last_activity'] = time();
             
             echo json_encode([
@@ -592,7 +595,6 @@ class WebInterface {
                 // Automatically respond with PONG
                 $socket = $this->getSocketFromSession();
                 fwrite($socket, "PONG :{$params[0]}\r\n");
-                $_SESSION['irc_socket'] = base64_encode(serialize($socket));
                 break;
                 
             case 'PRIVMSG':
@@ -782,10 +784,10 @@ class WebInterface {
     /**
      * Retrieves the socket object from the session
      * 
-     * @return resource|false The socket object or false on error
+     * @return resource|false The socket resource or false on error
      */
     private function getSocketFromSession() {
-        if (!isset($_SESSION['irc_socket'])) {
+        if (!isset($_SESSION['irc_socket_id'])) {
             return false;
         }
         
@@ -795,7 +797,25 @@ class WebInterface {
             return false;
         }
         
-        return unserialize(base64_decode($_SESSION['irc_socket']));
+        $socketId = $_SESSION['irc_socket_id'];
+        
+        // Check if socket exists in the static array
+        if (!isset(self::$activeSockets[$socketId])) {
+            $this->logger->error("Socket not found in active connections");
+            $this->closeConnection();
+            return false;
+        }
+        
+        $socket = self::$activeSockets[$socketId];
+        
+        // Check if socket is still valid
+        if (!is_resource($socket)) {
+            $this->logger->error("Invalid socket resource");
+            $this->closeConnection();
+            return false;
+        }
+        
+        return $socket;
     }
     
     /**
@@ -803,21 +823,26 @@ class WebInterface {
      */
     private function closeConnection(): void {
         try {
-            if (isset($_SESSION['irc_socket'])) {
-                $socket = unserialize(base64_decode($_SESSION['irc_socket']));
-                if (is_resource($socket)) {
-                    fclose($socket);
+            if (isset($_SESSION['irc_socket_id'])) {
+                $socketId = $_SESSION['irc_socket_id'];
+                if (isset(self::$activeSockets[$socketId])) {
+                    $socket = self::$activeSockets[$socketId];
+                    if (is_resource($socket)) {
+                        fclose($socket);
+                    }
+                    // Remove socket from active sockets
+                    unset(self::$activeSockets[$socketId]);
                 }
             }
             
             // Reset session variables
-            unset($_SESSION['irc_socket']);
+            unset($_SESSION['irc_socket_id']);
             unset($_SESSION['irc_connected']);
             unset($_SESSION['irc_nickname']);
             unset($_SESSION['irc_current_channel']);
             unset($_SESSION['irc_buffer']);
             unset($_SESSION['irc_last_activity']);
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             $this->logger->error("Error closing connection: " . $e->getMessage());
         }
     }
@@ -830,9 +855,7 @@ class WebInterface {
     private function isServerRunning(): bool {
         $socket = @fsockopen('127.0.0.1', $this->config->get('port', 6667), $errno, $errstr, 1);
         if ($socket) {
-            if (is_resource($socket)) {
-                fclose($socket);
-            }
+            fclose($socket);
             return true;
         }
         return false;

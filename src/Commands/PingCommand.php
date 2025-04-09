@@ -19,13 +19,13 @@ class PingCommand extends CommandBase {
         }
         
         // Send PING response with PONG
-        $target = $args[1];
+        $token = $args[1];
         $server = $this->server->getConfig()['name'];
         
-        // The second parameter is optional
-        $origin = isset($args[2]) ? $args[2] : $server;
+        // Standard IRC PONG response format
+        $user->send(":{$server} PONG {$server} :{$token}");
         
-        // Send PONG message (RFC 1459)
-        $user->send(":{$server} PONG {$server} :{$target}");
+        // Update user activity timestamp
+        $user->updateActivity();
     }
 }

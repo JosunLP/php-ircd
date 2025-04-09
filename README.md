@@ -8,6 +8,44 @@ such as mode and membership tracking and some /OPER commands.
 The latest commits here require PHP 8.
 See below table for older PHP versions.
 
+## Codebase Documentation
+
+PHP-IRCd is an IRC server written in PHP with the following characteristics:
+
+### Structure
+
+- `src/Commands/`: IRC commands (JOIN, NICK, PRIVMSG etc.)
+- `src/Core/`: Core functionality (Server, Configuration)
+- `src/Handlers/`: Connection management
+- `src/Models/`: Data models (Users, Channels)
+- `src/Utils/`: Helper functions (Logger)
+- `src/Web/`: Web interface for the IRC server
+
+### Installation and Startup
+
+1. PHP 8.0 or higher is required
+2. Install dependencies: `composer install`
+3. Start server: `php index.php` or `server.bat` (Windows)
+
+### Configuration
+
+Configuration can be customized through the `config.legacy.php` file or by creating your own configuration file. The most important settings are:
+
+- Server name and network
+- Port (default: 6667)
+- Binding IP (default: 0.0.0.0)
+- Maximum number of users
+- IRC operators
+
+### Features
+
+- Basic IRC commands
+- Channel management (create, join, leave)
+- User management (registration, nickname change)
+- Operator commands
+- Web interface for easy usage
+- Configurable Message of the Day (MOTD)
+
 ## History
 
 This codebase was created during my high school career

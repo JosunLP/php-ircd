@@ -16,6 +16,10 @@
             "email": "me@danopia.net",
             "role": "Original Author"
         }
+    ],
+    "minimum-stability": "stable",
+    "require-dev": {
+        "phpunit/phpunit": "^9.5"
     },
     "license": "MIT"
 }

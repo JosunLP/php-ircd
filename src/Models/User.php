@@ -20,7 +20,7 @@ class User {
     /**
      * Constructor
      * 
-     * @param resource $socket The user's connection
+     * @param \Socket $socket The user's connection
      * @param string $ip The user's IP address
      */
     public function __construct($socket, string $ip) {
@@ -98,7 +98,7 @@ class User {
      * Close connection
      */
     public function disconnect(): void {
-        if (is_resource($this->socket)) {
+        if ($this->socket instanceof \Socket) {
             socket_close($this->socket);
         }
     }

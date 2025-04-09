@@ -8,25 +8,32 @@ namespace PhpIrcd\Core;
 class Config {
     private $config = [];
     private $defaultConfig = [
-        'name' => 'irc.example.org',         // Server name
-        'net' => 'ExampleNet',               // Network name
-        'max_len' => 512,                    // Maximum packet length
-        'max_users' => 100,                  // Maximum number of users
-        'port' => 6667,                      // Default IRC port
-        'version' => '1.0.0',                // Server version
-        'bind_ip' => '0.0.0.0',              // IP address for binding
-        'line_ending' => "\n",               // Line ending for socket communication
-        'line_ending_conf' => "\n",          // Line ending for MOTD, etc.
-        'ping_interval' => 90,               // Ping interval in seconds
-        'ping_timeout' => 240,               // Ping timeout in seconds
-        'ssl_enabled' => false,              // SSL support
-        'ssl_cert' => '',                    // SSL certificate
-        'ssl_key' => '',                     // SSL key
-        'debug_mode' => false,               // Debug mode
-        'log_level' => 1,                    // 0=Debug, 1=Info, 2=Warn, 3=Error
-        'log_file' => 'ircd.log',            // Path to log file
-        'motd' => "Welcome to the PHP-IRCd Server!\nThis server runs on PHP-IRCd v1.0.0",
+        'name' => 'localhost',                   // Server name
+        'net' => 'Lokaler-IRC',                  // Network name
+        'max_len' => 512,                        // Maximum packet length
+        'max_users' => 50,                       // Maximum number of users
+        'port' => 6667,                          // Default IRC port
+        'version' => 1.0,                        // Server version
+        'bind_ip' => '127.0.0.1',                // IP address for binding
+        'line_ending' => "\n",                   // Line ending for socket communication
+        'line_ending_conf' => "\n",              // Line ending for MOTD, etc.
+        'ping_interval' => 90,                   // Ping interval in seconds
+        'ping_timeout' => 240,                   // Ping timeout in seconds
+        'ssl_enabled' => false,                  // SSL support
+        'ssl_cert' => '',                        // SSL certificate
+        'ssl_key' => '',                         // SSL key
+        'debug_mode' => true,                    // Debug mode
+        'log_level' => 0,                        // 0=Debug, 1=Info, 2=Warn, 3=Error
+        'log_file' => 'ircd.log',                // Path to log file
+        'motd' => "Willkommen bei deinem lokalen IRC-Testserver!\n\nDieser Server läuft auf localhost und ist zum Testen gedacht.\n\nDu kannst IRC-Operator werden mit folgendem Befehl:\n/OPER admin test123\n\nViel Spaß beim Testen!",
+        'opers' => [
+            'admin' => 'test123'
+        ],
+        'storage_dir' => 'storage',              // Verzeichnis für Datenspeicherung
+        'log_to_console' => true,                // Logs in Konsole anzeigen
     ];
+
+    // /OPER admin test123
     
     /**
      * Constructor

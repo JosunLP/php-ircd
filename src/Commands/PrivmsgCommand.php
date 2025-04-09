@@ -108,12 +108,6 @@ class PrivmsgCommand extends CommandBase {
             return;
         }
         
-        // Check if the channel is in no-external-messages mode
-        if ($channel->hasMode('n') && !$channel->hasUser($user)) {
-            $user->send(":{$config['name']} 404 {$nick} {$channelName} :Cannot send to channel");
-            return;
-        }
-        
         // Check if the channel is in moderated mode and the user has no voice
         if ($channel->hasMode('m') && !$channel->isVoiced($user) && !$channel->isOperator($user)) {
             $user->send(":{$config['name']} 404 {$nick} {$channelName} :Cannot send to channel");
@@ -121,10 +115,10 @@ class PrivmsgCommand extends CommandBase {
         }
         
         // Send message to all users in the channel (except the sender)
-        $message = ":{$nick}!{$user->getIdent()}@{$user->getCloak()} PRIVMSG {$channelName} :{$message}";
+        $formattedMessage = ":{$nick}!{$user->getIdent()}@{$user->getCloak()} PRIVMSG {$channelName} :{$message}";
         foreach ($channel->getUsers() as $channelUser) {
             if ($channelUser !== $user) {
-                $channelUser->send($message);
+                $channelUser->send($formattedMessage);
             }
         }
     }

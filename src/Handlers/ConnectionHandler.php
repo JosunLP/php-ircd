@@ -77,7 +77,7 @@ class ConnectionHandler {
                 $this->sendWelcomeMessages($user);
             } catch (\Exception $e) {
                 $this->server->getLogger()->error("Error accepting connection: " . $e->getMessage());
-                if (is_resource($newSocket)) {
+                if ($newSocket instanceof \Socket) {
                     socket_close($newSocket);
                 }
             }
@@ -103,11 +103,9 @@ class ConnectionHandler {
      */
     public function handleExistingConnections(): void {
         $users = $this->server->getUsers();
+        $currentTime = time();
         
         foreach ($users as $user) {
-            // Timestamp of the last activity check
-            $lastActivityCheck = time();
-            
             // Check and disconnect inactive connections
             if ($user->isInactive($this->inactivityTimeout)) {
                 $this->disconnectUser($user, "Ping timeout: {$this->inactivityTimeout} seconds");
