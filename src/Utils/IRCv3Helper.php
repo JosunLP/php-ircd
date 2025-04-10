@@ -272,9 +272,9 @@ class IRCv3Helper {
         }
         
         // Verwende die tatsächliche Benutzermaske für das Echo
-        $nick = $user->getNick() ?? '*';
-        $ident = $user->getIdent() ?? '*';
-        $host = $user->getHost() ?? '*'; // Verwende den Host statt des Cloaks für das Echo
+        $nick = $user->getNick() ?: '*'; // Verwende leeren String statt null mit dem Elvis-Operator
+        $ident = $user->getIdent() ?: '*';
+        $host = $user->getHost() ?: '*'; // Verwende den Host statt des Cloaks für das Echo
         
         $echoPrefixed = ":{$nick}!{$ident}@{$host} {$originalMessage}";
         

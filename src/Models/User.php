@@ -688,11 +688,18 @@ class User {
 
     /**
      * Gibt einen eindeutigen Identifikator für den Benutzer zurück
-     * In diesem Fall wird der Nickname verwendet, da er eindeutig sein muss
+     * Verwendet eine stabile ID für den Benutzer, nicht nur den Nickname
      * 
-     * @return string|null Der eindeutige Identifikator oder null wenn nicht verfügbar
+     * @return string Der eindeutige Identifikator
      */
-    public function getId(): ?string {
-        return $this->nick;
+    public function getId(): string {
+        // Falls kein Nickname vorhanden, verwenden wir eine Kombination aus IP und Verbindungszeit
+        if ($this->nick === null) {
+            return 'user_' . md5($this->ip . '_' . $this->connectTime);
+        }
+        
+        // Ansonsten verwenden wir eine Kombination aus Nickname und Verbindungszeit
+        // So bleibt die ID auch bei Nickname-Änderungen konsistent
+        return 'user_' . md5($this->nick . '_' . $this->connectTime);
     }
 }

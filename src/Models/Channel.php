@@ -571,22 +571,27 @@ class Channel {
      * @return bool Whether the user can join
      */
     public function canJoin(User $user, ?string $key = null): bool {
-        // Check if the user is banned
+        // Wenn Benutzer explizit eingeladen wurde, immer erlauben (überschreibt alle anderen Einschränkungen)
+        if ($this->isInvited($user)) {
+            return true;
+        }
+        
+        // Überprüfe, ob der Benutzer gebannt ist (und keine Ausnahme hat)
         if ($this->isBanned($user)) {
             return false;
         }
         
-        // Check if the channel is full
+        // Überprüfe, ob der Kanal voll ist
         if ($this->limit > 0 && count($this->users) >= $this->limit) {
             return false;
         }
         
-        // Check if the channel is invite-only
-        if ($this->inviteOnly && !$this->isInvited($user)) {
+        // Überprüfe, ob der Kanal invite-only ist
+        if ($this->inviteOnly) {
             return false;
         }
         
-        // Check if a key is required
+        // Überprüfe, ob ein Schlüssel benötigt wird
         if ($this->key !== null && $key !== $this->key) {
             return false;
         }

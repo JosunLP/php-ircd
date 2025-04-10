@@ -78,5 +78,13 @@ class InviteCommand extends CommandBase {
         
         // Send confirmation to the inviting user
         $user->send(":{$config['name']} 341 {$nick} {$nickname} {$channelName}");
+        
+        // IRCv3 invite-notify: Notify all users in the channel with the capability
+        $inviteNotify = ":{$nick}!{$user->getIdent()}@{$user->getCloak()} INVITE {$channelName} {$nickname}";
+        foreach ($channel->getUsers() as $channelUser) {
+            if ($channelUser !== $user && $channelUser !== $targetUser && $channelUser->hasCapability('invite-notify')) {
+                $channelUser->send($inviteNotify);
+            }
+        }
     }
 }
