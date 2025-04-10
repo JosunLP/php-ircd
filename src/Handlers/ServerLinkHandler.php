@@ -839,9 +839,7 @@ class ServerLinkHandler {
                         if ($addMode) {
                             $channel->invite($inviteExceptionMask, $sourceUser->getNick());
                         } else {
-                            // Hier könnte ein Problem sein, weil die Methode nicht implementiert ist
-                            // Eine Erweiterung der Channel-Klasse wäre notwendig
-                            $this->server->getLogger()->warning("Methode zum Entfernen von Einladungsausnahmen nicht implementiert");
+                            $channel->removeInviteException($inviteExceptionMask);
                         }
                     }
                     break;

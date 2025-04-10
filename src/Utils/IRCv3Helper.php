@@ -271,8 +271,12 @@ class IRCv3Helper {
             return;
         }
         
-        // Sende die Originalnachricht zurück an den Benutzer
-        $echoPrefixed = ":{$user->getMask()} {$originalMessage}";
+        // Verwende die tatsächliche Benutzermaske für das Echo
+        $nick = $user->getNick() ?? '*';
+        $ident = $user->getIdent() ?? '*';
+        $host = $user->getHost() ?? '*'; // Verwende den Host statt des Cloaks für das Echo
+        
+        $echoPrefixed = ":{$nick}!{$ident}@{$host} {$originalMessage}";
         
         // Füge server-time hinzu, wenn unterstützt
         $echoMessage = self::addServerTimeIfSupported($echoPrefixed, $user);

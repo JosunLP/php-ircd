@@ -616,6 +616,24 @@ class Channel {
     }
     
     /**
+     * Removes an invite exception
+     * 
+     * @param string $mask The invitation mask to be removed
+     * @return bool Success of the operation
+     */
+    public function removeInviteException(string $mask): bool {
+        foreach ($this->inviteExceptions as $key => $exception) {
+            if ($exception['mask'] === $mask) {
+                unset($this->inviteExceptions[$key]);
+                $this->inviteExceptions = array_values($this->inviteExceptions);
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    /**
      * Checks if a user is invited
      * 
      * @param User $user The user to be checked
