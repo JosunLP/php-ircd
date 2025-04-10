@@ -325,6 +325,84 @@ class Channel {
     }
     
     /**
+     * Checks if a user has owner status (~)
+     * 
+     * @param User $user The user to be checked
+     * @return bool Whether the user is an owner
+     */
+    public function isOwner(User $user): bool {
+        return in_array($user, $this->owners, true);
+    }
+    
+    /**
+     * Sets or removes the owner status of a user
+     * 
+     * @param User $user The user
+     * @param bool $value True to set, False to remove
+     */
+    public function setOwner(User $user, bool $value): void {
+        if ($value && !$this->isOwner($user)) {
+            $this->owners[] = $user;
+        } else if (!$value && $this->isOwner($user)) {
+            $key = array_search($user, $this->owners, true);
+            unset($this->owners[$key]);
+            $this->owners = array_values($this->owners);
+        }
+    }
+    
+    /**
+     * Checks if a user has protected status (&)
+     * 
+     * @param User $user The user to be checked
+     * @return bool Whether the user is protected
+     */
+    public function isProtected(User $user): bool {
+        return in_array($user, $this->protected, true);
+    }
+    
+    /**
+     * Sets or removes the protected status of a user
+     * 
+     * @param User $user The user
+     * @param bool $value True to set, False to remove
+     */
+    public function setProtected(User $user, bool $value): void {
+        if ($value && !$this->isProtected($user)) {
+            $this->protected[] = $user;
+        } else if (!$value && $this->isProtected($user)) {
+            $key = array_search($user, $this->protected, true);
+            unset($this->protected[$key]);
+            $this->protected = array_values($this->protected);
+        }
+    }
+    
+    /**
+     * Checks if a user has halfop status (%)
+     * 
+     * @param User $user The user to be checked
+     * @return bool Whether the user is a halfop
+     */
+    public function isHalfop(User $user): bool {
+        return in_array($user, $this->halfops, true);
+    }
+    
+    /**
+     * Sets or removes the halfop status of a user
+     * 
+     * @param User $user The user
+     * @param bool $value True to set, False to remove
+     */
+    public function setHalfop(User $user, bool $value): void {
+        if ($value && !$this->isHalfop($user)) {
+            $this->halfops[] = $user;
+        } else if (!$value && $this->isHalfop($user)) {
+            $key = array_search($user, $this->halfops, true);
+            unset($this->halfops[$key]);
+            $this->halfops = array_values($this->halfops);
+        }
+    }
+    
+    /**
      * Adds a ban
      * 
      * @param string $mask The ban mask (e.g., *!*@*.example.com)
@@ -567,5 +645,23 @@ class Channel {
      */
     public function isPermanent(): bool {
         return $this->permanent;
+    }
+    
+    /**
+     * Returns the key of the channel if set
+     * 
+     * @return string|null The key or null if none is set
+     */
+    public function getKey(): ?string {
+        return $this->key;
+    }
+    
+    /**
+     * Returns the user limit of the channel if set
+     * 
+     * @return int The user limit or 0 if none is set
+     */
+    public function getLimit(): int {
+        return $this->limit;
     }
 }

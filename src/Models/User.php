@@ -19,6 +19,9 @@ class User {
     private $away = null;
     private $isStreamSocket = false; // Flag für Stream-Socket (SSL)
     private $password = null; // Neu: Passwort für spätere Auth speichern
+    private $saslInProgress = false; // Neu: SASL-Authentifizierung läuft
+    private $saslAuthenticated = false; // Neu: SASL-Authentifizierung erfolgreich
+    private $capabilities = []; // Neu: Aktivierte IRCv3 Capabilities
     
     /**
      * Constructor
@@ -344,5 +347,84 @@ class User {
      */
     public function getConnectTime(): int {
         return $this->connectTime;
+    }
+
+    /**
+     * Checks if SASL authentication is in progress
+     * 
+     * @return bool Whether SASL authentication is in progress
+     */
+    public function isSaslInProgress(): bool {
+        return $this->saslInProgress;
+    }
+    
+    /**
+     * Sets the SASL authentication progress state
+     * 
+     * @param bool $inProgress Whether SASL authentication is in progress
+     */
+    public function setSaslInProgress(bool $inProgress): void {
+        $this->saslInProgress = $inProgress;
+    }
+    
+    /**
+     * Checks if the user is authenticated via SASL
+     * 
+     * @return bool Whether the user is authenticated via SASL
+     */
+    public function isSaslAuthenticated(): bool {
+        return $this->saslAuthenticated;
+    }
+    
+    /**
+     * Sets the SASL authentication state
+     * 
+     * @param bool $authenticated Whether the user is authenticated via SASL
+     */
+    public function setSaslAuthenticated(bool $authenticated): void {
+        $this->saslAuthenticated = $authenticated;
+    }
+    
+    /**
+     * Adds a capability to the user's active capabilities
+     * 
+     * @param string $capability The capability to add
+     */
+    public function addCapability(string $capability): void {
+        if (!in_array($capability, $this->capabilities)) {
+            $this->capabilities[] = $capability;
+        }
+    }
+    
+    /**
+     * Removes a capability from the user's active capabilities
+     * 
+     * @param string $capability The capability to remove
+     */
+    public function removeCapability(string $capability): void {
+        $key = array_search($capability, $this->capabilities);
+        if ($key !== false) {
+            unset($this->capabilities[$key]);
+            $this->capabilities = array_values($this->capabilities);
+        }
+    }
+    
+    /**
+     * Gets the user's active capabilities
+     * 
+     * @return array The active capabilities
+     */
+    public function getCapabilities(): array {
+        return $this->capabilities;
+    }
+    
+    /**
+     * Checks if the user has a specific capability enabled
+     * 
+     * @param string $capability The capability to check
+     * @return bool Whether the user has the capability
+     */
+    public function hasCapability(string $capability): bool {
+        return in_array($capability, $this->capabilities);
     }
 }

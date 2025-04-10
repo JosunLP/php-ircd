@@ -92,8 +92,26 @@ class JoinCommand extends CommandBase {
         
         // Send JOIN message to all users in the channel
         $joinMessage = ":{$user->getNick()}!{$user->getIdent()}@{$user->getCloak()} JOIN :{$channelName}";
+        
+        // Check if extended-join capability is supported
+        if ($user->hasCapability('extended-join')) {
+            // Add account and realname information for extended-join
+            $account = $user->isSaslAuthenticated() ? $user->getNick() : '*';
+            $realname = $user->getRealname();
+            $joinMessage .= " {$account} :{$realname}";
+        }
+        
         foreach ($channel->getUsers() as $channelUser) {
-            $channelUser->send($joinMessage);
+            if ($channelUser->hasCapability('extended-join')) {
+                // Send extended JOIN format to users with the capability
+                $account = $user->isSaslAuthenticated() ? $user->getNick() : '*';
+                $realname = $user->getRealname();
+                $extendedJoin = ":{$user->getNick()}!{$user->getIdent()}@{$user->getCloak()} JOIN {$channelName} {$account} :{$realname}";
+                $channelUser->send($extendedJoin);
+            } else {
+                // Send standard JOIN format to others
+                $channelUser->send($joinMessage);
+            }
         }
         
         // Send topic if available
@@ -107,6 +125,9 @@ class JoinCommand extends CommandBase {
         
         // Send user list
         $this->sendNamesList($user, $channel);
+        
+        // Log channel join
+        $this->server->getLogger()->info("User {$user->getNick()} joined channel {$channelName}");
     }
     
     /**
