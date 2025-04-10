@@ -14,21 +14,21 @@ class User {
     private $cloak;
     private $registered = false;
     private $lastActivity;
-    private $connectTime;  // Neu: Verbindungszeit speichern
+    private $connectTime;  // New: Save connection time
     private $modes = [];
     private $away = null;
-    private $isStreamSocket = false; // Flag für Stream-Socket (SSL)
-    private $password = null; // Neu: Passwort für spätere Auth speichern
-    private $saslInProgress = false; // Neu: SASL-Authentifizierung läuft
-    private $saslAuthenticated = false; // Neu: SASL-Authentifizierung erfolgreich
-    private $capabilities = []; // Neu: Aktivierte IRCv3 Capabilities
-    private $silencedMasks = []; // Neu: Liste von ignorierten User-Masken (SILENCE)
-    private $watchList = []; // Neu: Liste von beobachteten Nicknames (WATCH)
-    private $saslMechanism = null; // Speichert den SASL-Mechanismus während der Authentifizierung
-    private $capabilityNegotiationInProgress = false; // Ob CAP-Verhandlung gerade läuft
-    private $isRemoteUser = false; // Neu: Flag für Remote-Benutzer
-    private $remoteServer = null; // Neu: Name des Remote-Servers
-    private $server = null; // Neu: Referenz auf den Server, in dem der Benutzer registriert ist
+    private $isStreamSocket = false; // Flag for stream socket (SSL)
+    private $password = null; // New: Save password for later authentication
+    private $saslInProgress = false; // New: SASL authentication in progress
+    private $saslAuthenticated = false; // New: SASL authentication successful
+    private $capabilities = []; // New: Enabled IRCv3 Capabilities
+    private $silencedMasks = []; // New: List of ignored user masks (SILENCE)
+    private $watchList = []; // New: List of watched nicknames (WATCH)
+    private $saslMechanism = null; // Stores the SASL mechanism during authentication
+    private $capabilityNegotiationInProgress = false; // Whether CAP negotiation is currently ongoing
+    private $isRemoteUser = false; // New: Flag for remote users
+    private $remoteServer = null; // New: Name of the remote server
+    private $server = null; // New: Reference to the server where the user is registered
     
     /**
      * Constructor
@@ -43,7 +43,7 @@ class User {
         $this->host = $this->lookupHostname($ip);
         $this->cloak = $this->host; // Initial value, can be changed later
         $this->lastActivity = time();
-        $this->connectTime = time();  // Neu: Zeitpunkt der Verbindung setzen
+        $this->connectTime = time();  // New: Set connection time
         $this->isStreamSocket = $isStreamSocket;
         
         // Set socket to non-blocking
@@ -74,11 +74,11 @@ class User {
     public function send(string $data): bool {
         try {
             if ($this->isStreamSocket) {
-                // Stream-Sockets (SSL) verwenden fwrite
+                // Stream sockets (SSL) use fwrite
                 $result = @fwrite($this->socket, $data . "\r\n");
                 return $result !== false;
             } else {
-                // Normale Sockets verwenden socket_write
+                // Normal sockets use socket_write
                 $result = @socket_write($this->socket, $data . "\r\n");
                 return $result !== false;
             }
@@ -96,35 +96,35 @@ class User {
     public function read(int $maxLen = 512) {
         try {
             if ($this->isStreamSocket) {
-                // Stream-Sockets (SSL) lesen
+                // Read from stream sockets (SSL)
                 $data = @fread($this->socket, $maxLen);
             } else {
-                // Normale Sockets lesen
+                // Read from normal sockets
                 $data = @socket_read($this->socket, $maxLen);
             }
             
-            // Wenn false, ist die Verbindung wahrscheinlich geschlossen
+            // If false, the connection is likely closed
             if ($data === false) {
                 return false;
             }
             
-            // Daten zum Buffer hinzufügen (auch leere Strings)
+            // Add data to buffer (even empty strings)
             $this->buffer .= $data;
             
-            // Wenn der Buffer eine neue Zeile enthält, den ersten Befehl zurückgeben
+            // If the buffer contains a new line, return the first command
             $pos = strpos($this->buffer, "\n");
             if ($pos !== false) {
                 $command = substr($this->buffer, 0, $pos);
                 $this->buffer = substr($this->buffer, $pos + 1);
-                return trim($command); // Steuerzeichen entfernen
+                return trim($command); // Remove control characters
             } elseif ($pos = strpos($this->buffer, "\r")) {
-                // Manche IRC-Clients senden nur \r als Zeilenende
+                // Some IRC clients send only \r as line ending
                 $command = substr($this->buffer, 0, $pos);
                 $this->buffer = substr($this->buffer, $pos + 1);
                 return trim($command);
             }
             
-            // Kein vollständiger Befehl verfügbar
+            // No complete command available
             return '';
         } catch (\Exception $e) {
             return false;
@@ -436,16 +436,16 @@ class User {
     }
 
     /**
-     * Setzt oder entfernt den CAP-Verhandlungs-Status
+     * Sets or removes the CAP negotiation status
      * 
-     * @param bool $inProgress Ob CAP-Verhandlung im Gange ist
+     * @param bool $inProgress Whether CAP negotiation is ongoing
      */
     public function setCapabilityNegotiationInProgress(bool $inProgress): void {
         $this->capabilityNegotiationInProgress = $inProgress;
     }
     
     /**
-     * Prüft, ob die CAP-Verhandlung im Gange ist
+     * Checks if CAP negotiation is ongoing
      * 
      * @return bool
      */
@@ -454,7 +454,7 @@ class User {
     }
     
     /**
-     * Entfernt alle aktivierten Capabilities
+     * Removes all activated capabilities
      */
     public function clearCapabilities(): void {
         $this->capabilities = [];
@@ -476,17 +476,17 @@ class User {
      * @return bool Success (false if already at maximum entries)
      */
     public function addSilencedMask(string $mask): bool {
-        // Prüfen, ob die Maske bereits existiert
+        // Check if the mask already exists
         if (in_array($mask, $this->silencedMasks)) {
-            return true; // Maske bereits vorhanden
+            return true; // Mask already present
         }
         
-        // Maximale Anzahl von SILENCE-Einträgen (15 nach RFC)
+        // Maximum number of SILENCE entries (15 according to RFC)
         if (count($this->silencedMasks) >= 15) {
             return false;
         }
         
-        // Maske hinzufügen
+        // Add mask
         $this->silencedMasks[] = $mask;
         return true;
     }
@@ -521,7 +521,7 @@ class User {
         $fullMask = $sender->getNick() . "!" . $sender->getIdent() . "@" . $sender->getHost();
         
         foreach ($this->silencedMasks as $mask) {
-            // Einfacher Mask-Vergleich mit Wildcards (* und ?)
+            // Simple mask comparison with wildcards (* and ?)
             if ($this->matchesMask($fullMask, $mask)) {
                 return true;
             }
@@ -606,7 +606,7 @@ class User {
     }
     
     /**
-     * Setter und Getter für SASL-Mechanismus
+     * Setter and getter for SASL mechanism
      */
     public function setSaslMechanism(string $mechanism): void {
         $this->saslMechanism = $mechanism;
@@ -617,7 +617,7 @@ class User {
     }
     
     /**
-     * Prüft, ob die Verbindung über SSL/TLS gesichert ist
+     * Checks if the connection is secured via SSL/TLS
      */
     public function isSecureConnection(): bool {
         return $this->isStreamSocket;
@@ -687,19 +687,19 @@ class User {
     }
 
     /**
-     * Gibt einen eindeutigen Identifikator für den Benutzer zurück
-     * Verwendet eine stabile ID für den Benutzer, nicht nur den Nickname
+     * Returns a unique identifier for the user
+     * Uses a stable ID for the user, not just the nickname
      * 
-     * @return string Der eindeutige Identifikator
+     * @return string The unique identifier
      */
     public function getId(): string {
-        // Falls kein Nickname vorhanden, verwenden wir eine Kombination aus IP und Verbindungszeit
+        // If no nickname is present, use a combination of IP and connection time
         if ($this->nick === null) {
             return 'user_' . md5($this->ip . '_' . $this->connectTime);
         }
         
-        // Ansonsten verwenden wir eine Kombination aus Nickname und Verbindungszeit
-        // So bleibt die ID auch bei Nickname-Änderungen konsistent
+        // Otherwise, use a combination of nickname and connection time
+        // This keeps the ID consistent even if the nickname changes
         return 'user_' . md5($this->nick . '_' . $this->connectTime);
     }
 }

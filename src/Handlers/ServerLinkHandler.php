@@ -10,75 +10,75 @@ use PhpIrcd\Models\User;
 class ServerLinkHandler {
     private $server;
     private $links = [];
-    private $pingTimeout = 240; // 4 Minuten Timeout für Server-Links
+    private $pingTimeout = 240; // 4 minutes timeout for server links
     
     /**
      * Constructor
      * 
-     * @param Server $server Die Server-Instanz
+     * @param Server $server The server instance
      */
     public function __construct(Server $server) {
         $this->server = $server;
     }
     
     /**
-     * Akzeptiert neue Server-Verbindungen
+     * Accepts new server connections
      * 
-     * @param mixed $serverSocket Der Server-Socket
+     * @param mixed $serverSocket The server socket
      */
     public function acceptServerConnections($serverSocket): void {
-        // Überprüfen, ob Server-zu-Server-Verbindungen aktiviert sind
+        // Check if server-to-server connections are enabled
         $config = $this->server->getConfig();
         if (empty($config['enable_server_links']) || $config['enable_server_links'] !== true) {
             return;
         }
         
-        // Prüfen, ob es sich um einen Stream-Socket (SSL) oder normalen Socket handelt
+        // Check if it is a stream socket (SSL) or a regular socket
         $isStreamSocket = !($serverSocket instanceof \Socket);
         
         if ($isStreamSocket) {
-            // Stream-Socket (SSL) verarbeiten
+            // Process stream socket (SSL)
             $newSocket = @stream_socket_accept($serverSocket, 0); // Non-blocking accept
             
             if ($newSocket !== false) {
                 try {
-                    // Peer-Namen für den Stream-Socket ermitteln
+                    // Determine peer name for the stream socket
                     $peerName = stream_socket_get_name($newSocket, true);
                     $ip = parse_url($peerName, PHP_URL_HOST) ?: explode(':', $peerName)[0];
                     
-                    // Neuen Server-Link erstellen
+                    // Create new server link
                     $serverLink = new ServerLink($newSocket, 'unknown.server', '', true);
                     
-                    // Link zum Server hinzufügen
+                    // Add link to the server
                     $this->addServerLink($serverLink);
                     
-                    // Begrüßungsnachricht senden
+                    // Send welcome message
                     $this->sendWelcomeToServer($serverLink);
                 } catch (\Exception $e) {
-                    $this->server->getLogger()->error("Fehler beim Akzeptieren der Stream-Socket-Verbindung: " . $e->getMessage());
+                    $this->server->getLogger()->error("Error accepting stream socket connection: " . $e->getMessage());
                     if (is_resource($newSocket)) {
                         fclose($newSocket);
                     }
                 }
             }
         } else {
-            // Normalen Socket verarbeiten
+            // Process regular socket
             $newSocket = socket_accept($serverSocket);
             if ($newSocket !== false) {
                 try {
-                    // IP-Adresse des neuen Servers ermitteln
+                    // Determine IP address of the new server
                     socket_getpeername($newSocket, $ip);
                     
-                    // Neuen Server-Link erstellen
+                    // Create new server link
                     $serverLink = new ServerLink($newSocket, 'unknown.server', '');
                     
-                    // Link zum Server hinzufügen
+                    // Add link to the server
                     $this->addServerLink($serverLink);
                     
-                    // Begrüßungsnachricht senden
+                    // Send welcome message
                     $this->sendWelcomeToServer($serverLink);
                 } catch (\Exception $e) {
-                    $this->server->getLogger()->error("Fehler beim Akzeptieren der Socket-Verbindung: " . $e->getMessage());
+                    $this->server->getLogger()->error("Error accepting socket connection: " . $e->getMessage());
                     if ($newSocket instanceof \Socket) {
                         socket_close($newSocket);
                     }
@@ -88,97 +88,97 @@ class ServerLinkHandler {
     }
     
     /**
-     * Sendet eine Begrüßungsnachricht an einen neuen Server
+     * Sends a welcome message to a new server
      * 
-     * @param ServerLink $serverLink Der neue Server-Link
+     * @param ServerLink $serverLink The new server link
      */
     private function sendWelcomeToServer(ServerLink $serverLink): void {
         $config = $this->server->getConfig();
-        $serverLink->send("NOTICE AUTH :*** Server-zu-Server-Verbindung initiiert");
+        $serverLink->send("NOTICE AUTH :*** Server-to-server connection initiated");
         
-        // In einem produktiven Umfeld würden wir hier den PASS und SERVER handshake durchführen
+        // In a production environment, we would perform the PASS and SERVER handshake here
     }
     
     /**
-     * Fügt einen neuen Server-Link hinzu
+     * Adds a new server link
      * 
-     * @param ServerLink $serverLink Der neue Server-Link
+     * @param ServerLink $serverLink The new server link
      */
     public function addServerLink(ServerLink $serverLink): void {
         $this->links[] = $serverLink;
-        $this->server->getLogger()->info("Neue Server-zu-Server-Verbindung hergestellt: " . $serverLink->getName());
+        $this->server->getLogger()->info("New server-to-server connection established: " . $serverLink->getName());
     }
     
     /**
-     * Verarbeitet bestehende Server-Links
+     * Processes existing server links
      */
     public function handleExistingServerLinks(): void {
         $currentTime = time();
         
         foreach ($this->links as $key => $serverLink) {
-            // Auf Timeout prüfen und inaktive Verbindungen trennen
+            // Check for timeout and disconnect inactive connections
             if ($serverLink->isInactive($this->pingTimeout)) {
                 $this->disconnectServerLink($serverLink, "Ping timeout: {$this->pingTimeout} seconds");
                 unset($this->links[$key]);
                 continue;
             }
             
-            // Daten vom Server lesen
+            // Read data from the server
             $command = $serverLink->readCommand();
             
-            // Verbindungsverlust erkennen
+            // Detect connection loss
             if ($command === false) {
                 $this->disconnectServerLink($serverLink, "Connection closed");
                 unset($this->links[$key]);
                 continue;
             }
             
-            // Wenn ein vollständiger Befehl empfangen wurde, verarbeiten
+            // Process if a complete command is received
             if (!empty($command)) {
                 $this->processServerCommand($serverLink, $command);
             }
         }
         
-        // Array neu indizieren
+        // Reindex array
         $this->links = array_values($this->links);
         
-        // Pings an Server senden
+        // Send pings to servers
         static $lastPingTime = 0;
-        if ($currentTime - $lastPingTime > 90) { // Alle 90 Sekunden
+        if ($currentTime - $lastPingTime > 90) { // Every 90 seconds
             $this->pingServers();
             $lastPingTime = $currentTime;
         }
     }
     
     /**
-     * Verarbeitet einen Befehl von einem Server
+     * Processes a command from a server
      * 
-     * @param ServerLink $serverLink Der Server-Link
-     * @param string $command Der empfangene Befehl
+     * @param ServerLink $serverLink The server link
+     * @param string $command The received command
      */
     private function processServerCommand(ServerLink $serverLink, string $command): void {
-        // Aktivitätszeitstempel aktualisieren
+        // Update activity timestamp
         $serverLink->updateActivity();
         
-        // Befehl in seine Bestandteile zerlegen
+        // Split command into parts
         $parts = explode(' ', $command);
         $prefix = '';
         
-        // Wenn der Befehl mit einem Präfix beginnt, dieses extrahieren
+        // If the command starts with a prefix, extract it
         if ($parts[0][0] === ':') {
             $prefix = substr(array_shift($parts), 1);
         }
         
         if (empty($parts)) {
-            return; // Leerer Befehl
+            return; // Empty command
         }
         
         $commandType = strtoupper($parts[0]);
         
-        // Server-Befehle verarbeiten
+        // Process server commands
         switch ($commandType) {
             case 'PING':
-                // Mit PONG antworten
+                // Respond with PONG
                 if (isset($parts[1])) {
                     $target = $parts[1];
                     $serverLink->send("PONG {$this->server->getConfig()['name']} {$target}");
@@ -186,103 +186,103 @@ class ServerLinkHandler {
                 break;
                 
             case 'PONG':
-                // PONG wurde empfangen, nichts zu tun
+                // PONG received, nothing to do
                 break;
                 
             case 'PASS':
-                // Passwort-Authentifizierung für Server
+                // Password authentication for server
                 $this->handlePassCommand($serverLink, $parts);
                 break;
                 
             case 'SERVER':
-                // SERVER-Befehl zur Server-Registrierung
+                // SERVER command for server registration
                 $this->handleServerCommand($serverLink, $parts);
                 break;
                 
             case 'SQUIT':
-                // Server-Trennung
+                // Server disconnection
                 $this->handleSquitCommand($serverLink, $prefix, $parts);
                 break;
                 
             case 'NICK':
-                // Nickname-Änderung oder -Registrierung
+                // Nickname change or registration
                 $this->handleNickCommand($serverLink, $prefix, $parts);
                 break;
                 
             case 'JOIN':
-                // Channel-Beitritt
+                // Channel join
                 $this->handleJoinCommand($serverLink, $prefix, $parts);
                 break;
                 
             case 'PART':
-                // Channel-Verlassen
+                // Channel leave
                 $this->handlePartCommand($serverLink, $prefix, $parts);
                 break;
                 
             case 'QUIT':
-                // Benutzer-Trennung
+                // User disconnection
                 $this->handleQuitCommand($serverLink, $prefix, $parts);
                 break;
                 
             case 'MODE':
-                // Modus-Änderung
+                // Mode change
                 $this->handleModeCommand($serverLink, $prefix, $parts);
                 break;
                 
             case 'TOPIC':
-                // Topic-Änderung
+                // Topic change
                 $this->handleTopicCommand($serverLink, $prefix, $parts);
                 break;
                 
             case 'PRIVMSG':
             case 'NOTICE':
-                // Private Nachricht oder Notiz
+                // Private message or notice
                 $this->handleMessageCommand($serverLink, $prefix, $commandType, $parts);
                 break;
                 
             default:
-                // Unbekannter oder nicht implementierter Befehl
-                $this->server->getLogger()->debug("Unbekannter Server-Befehl empfangen: {$commandType}");
+                // Unknown or unimplemented command
+                $this->server->getLogger()->debug("Unknown server command received: {$commandType}");
                 break;
         }
     }
     
     /**
-     * Verarbeitet den PASS-Befehl eines Servers
+     * Processes the PASS command from a server
      * 
-     * @param ServerLink $serverLink Der Server-Link
-     * @param array $parts Die Befehlsteile
+     * @param ServerLink $serverLink The server link
+     * @param array $parts The command parts
      */
     private function handlePassCommand(ServerLink $serverLink, array $parts): void {
-        // Überprüfen, ob genügend Parameter vorhanden sind
+        // Check if enough parameters are present
         if (!isset($parts[1])) {
             return;
         }
         
-        // Passwort extrahieren
+        // Extract password
         $password = $parts[1];
         
-        // Passwort im ServerLink speichern
+        // Store password in the ServerLink
         $serverLink->setPassword($password);
     }
     
     /**
-     * Verarbeitet den SERVER-Befehl eines Servers
+     * Processes the SERVER command from a server
      * 
-     * @param ServerLink $serverLink Der Server-Link
-     * @param array $parts Die Befehlsteile
+     * @param ServerLink $serverLink The server link
+     * @param array $parts The command parts
      */
     private function handleServerCommand(ServerLink $serverLink, array $parts): void {
-        // Überprüfen, ob genügend Parameter vorhanden sind
+        // Check if enough parameters are present
         if (!isset($parts[1]) || !isset($parts[2]) || !isset($parts[3])) {
             return;
         }
         
-        // Server-Parameter extrahieren
+        // Extract server parameters
         $name = $parts[1];
         $hopCount = (int)$parts[2];
         
-        // Info aus dem Rest des Befehls extrahieren (beginnt mit :)
+        // Extract info from the rest of the command (starts with :)
         $info = '';
         for ($i = 3; $i < count($parts); $i++) {
             if ($parts[$i][0] === ':') {
@@ -291,47 +291,47 @@ class ServerLinkHandler {
             }
         }
         
-        // Authentifizierung überprüfen
+        // Check authentication
         $config = $this->server->getConfig();
         $expectedPassword = $config['server_password'] ?? '';
         
         if ($serverLink->getPassword() !== $expectedPassword) {
-            // Authentifizierung fehlgeschlagen
-            $this->server->getLogger()->warning("Server-Authentifizierung fehlgeschlagen für {$name}");
+            // Authentication failed
+            $this->server->getLogger()->warning("Server authentication failed for {$name}");
             $this->disconnectServerLink($serverLink, "Authentication failed");
             return;
         }
         
-        // Server-Link aktualisieren
+        // Update server link
         $serverLink->setName($name);
         $serverLink->setDescription($info);
         $serverLink->setHopCount($hopCount);
         $serverLink->setConnected(true);
         
-        // Bestätigung senden
-        $serverLink->send(":{$config['name']} NOTICE {$name} :Server authenticaton successful");
+        // Send confirmation
+        $serverLink->send(":{$config['name']} NOTICE {$name} :Server authentication successful");
         
-        // Loggen
-        $this->server->getLogger()->info("Server {$name} erfolgreich authentifiziert");
+        // Log
+        $this->server->getLogger()->info("Server {$name} successfully authenticated");
     }
     
     /**
-     * Verarbeitet den SQUIT-Befehl eines Servers
+     * Processes the SQUIT command from a server
      * 
-     * @param ServerLink $serverLink Der Server-Link
-     * @param string $prefix Das Befehlspräfix
-     * @param array $parts Die Befehlsteile
+     * @param ServerLink $serverLink The server link
+     * @param string $prefix The command prefix
+     * @param array $parts The command parts
      */
     private function handleSquitCommand(ServerLink $serverLink, string $prefix, array $parts): void {
-        // Überprüfen, ob genügend Parameter vorhanden sind
+        // Check if enough parameters are present
         if (!isset($parts[1])) {
             return;
         }
         
-        // Server-Name extrahieren
+        // Extract server name
         $targetServer = $parts[1];
         
-        // Grund aus dem Rest des Befehls extrahieren (beginnt mit :)
+        // Extract reason from the rest of the command (starts with :)
         $reason = 'No reason';
         for ($i = 2; $i < count($parts); $i++) {
             if ($parts[$i][0] === ':') {
@@ -340,7 +340,7 @@ class ServerLinkHandler {
             }
         }
         
-        // Wenn der Zielserver dieser Server ist, die Verbindung trennen
+        // If the target server is this server, disconnect the connection
         $config = $this->server->getConfig();
         if ($targetServer === $config['name']) {
             $this->disconnectServerLink($serverLink, "Remote SQUIT: {$reason}");
@@ -348,107 +348,107 @@ class ServerLinkHandler {
     }
     
     /**
-     * Verarbeitet den NICK-Befehl eines Servers
+     * Processes the NICK command from a server
      * 
-     * @param ServerLink $serverLink Der Server-Link
-     * @param string $prefix Das Befehlspräfix
-     * @param array $parts Die Befehlsteile
+     * @param ServerLink $serverLink The server link
+     * @param string $prefix The command prefix
+     * @param array $parts The command parts
      */
     private function handleNickCommand(ServerLink $serverLink, string $prefix, array $parts): void {
-        // NICK-Befehl vom Server (User-Registrierung oder Namensänderung)
-        // Würde in einer vollständigen Implementierung die Synchronisation von Benutzern zwischen Servern durchführen
+        // NICK command from the server (user registration or name change)
+        // Would perform synchronization of users between servers in a complete implementation
     }
     
     /**
-     * Verarbeitet den JOIN-Befehl eines Servers
+     * Processes the JOIN command from a server
      * 
-     * @param ServerLink $serverLink Der Server-Link
-     * @param string $prefix Das Befehlspräfix
-     * @param array $parts Die Befehlsteile
+     * @param ServerLink $serverLink The server link
+     * @param string $prefix The command prefix
+     * @param array $parts The command parts
      */
     private function handleJoinCommand(ServerLink $serverLink, string $prefix, array $parts): void {
-        // Überprüfen, ob genügend Parameter vorhanden sind
+        // Check if enough parameters are present
         if (!isset($parts[1])) {
             return;
         }
         
-        // Wenn kein Prefix vorhanden ist, können wir nichts tun
+        // If no prefix is present, we cannot do anything
         if (empty($prefix)) {
             return;
         }
         
-        // Benutzerinformationen aus dem Prefix extrahieren (nick!user@host)
+        // Extract user information from the prefix (nick!user@host)
         $nickInfo = explode('!', $prefix, 2);
         $nick = $nickInfo[0];
         
-        // Ident und Host extrahieren (wenn verfügbar)
+        // Extract ident and host (if available)
         $identHost = '';
         if (isset($nickInfo[1])) {
             $identHost = $nickInfo[1];
         }
         
-        // Kanalname(n) extrahieren
+        // Extract channel name(s)
         $channels = explode(',', $parts[1]);
         
-        // Server-Konfiguration holen
+        // Get server configuration
         $config = $this->server->getConfig();
         
-        // Für jeden Kanal die Join-Nachricht an lokale Benutzer weiterleiten
+        // For each channel, forward the join message to local users
         foreach ($channels as $channelName) {
-            // Prüfen, ob der Kanal gültig ist
+            // Check if the channel is valid
             if (!Channel::isValidChannelName($channelName)) {
                 continue;
             }
             
-            // Kanal erstellen oder holen
+            // Create or get the channel
             $channel = $this->server->getChannel($channelName);
             if ($channel === null) {
                 $channel = new Channel($channelName);
                 $this->server->addChannel($channel);
             }
             
-            // Remote-Benutzer zum Kanal hinzufügen
+            // Add remote user to the channel
             $remoteUser = $this->getOrCreateRemoteUser($nick, $identHost, $serverLink);
             if ($remoteUser !== null) {
                 $channel->addUser($remoteUser);
                 
-                // JOIN-Benachrichtigung an alle Benutzer im Kanal senden
+                // Send JOIN notification to all users in the channel
                 $joinMessage = ":{$prefix} JOIN {$channelName}";
                 foreach ($channel->getUsers() as $user) {
-                    // Nicht an den Remote-Benutzer selbst senden
+                    // Do not send to the remote user itself
                     if ($user !== $remoteUser) {
                         $user->send($joinMessage);
                     }
                 }
             }
             
-            // JOIN-Nachricht an alle anderen Server weiterleiten (außer Ursprungsserver)
+            // Forward JOIN message to all other servers (except origin server)
             $this->server->propagateToServers(":{$prefix} JOIN {$channelName}", $serverLink->getName());
         }
     }
     
     /**
-     * Holt oder erstellt einen Remote-Benutzer
+     * Gets or creates a remote user
      * 
-     * @param string $nick Der Nickname des Benutzers
-     * @param string $identHost Die Ident/Host-Information (user@host)
-     * @param ServerLink $serverLink Der Server-Link, von dem der Benutzer kommt
-     * @return User|null Der Remote-Benutzer oder null bei Fehler
+     * @param string $nick The user's nickname
+     * @param string $identHost The ident/host information (user@host)
+     * @param ServerLink $serverLink The server link the user comes from
+     * @return User|null The remote user or null on error
      */
     private function getOrCreateRemoteUser(string $nick, string $identHost, ServerLink $serverLink): ?User {
-        // Suchen, ob der Benutzer bereits lokal bekannt ist
+        // Search if the user is already known locally
         foreach ($this->server->getUsers() as $user) {
             if ($user->getNick() === $nick) {
                 return $user;
             }
         }
         
-        // Wenn nicht, einen neuen Remote-Benutzer erstellen
+        // If not, create a new remote user
         $identHostParts = explode('@', $identHost, 2);
         $ident = $identHostParts[0] ?? 'unknown';
         $host = $identHostParts[1] ?? 'unknown.host';
         
-        // Neuen Remote-Benutzer mit Dummy-Socket erstellen
+        // Create new remote user with dummy socket
         $user = new User(null, $serverLink->getName() . ".remote");
         $user->setNick($nick);
         $user->setIdent($ident);
@@ -457,38 +457,38 @@ class ServerLinkHandler {
         $user->setRemoteUser(true);
         $user->setRemoteServer($serverLink->getName());
         
-        // Benutzer zum Server hinzufügen
+        // Add user to the server
         $this->server->addUser($user);
         
         return $user;
     }
     
     /**
-     * Verarbeitet den PART-Befehl eines Servers
+     * Processes the PART command from a server
      * 
-     * @param ServerLink $serverLink Der Server-Link
-     * @param string $prefix Das Befehlspräfix
-     * @param array $parts Die Befehlsteile
+     * @param ServerLink $serverLink The server link
+     * @param string $prefix The command prefix
+     * @param array $parts The command parts
      */
     private function handlePartCommand(ServerLink $serverLink, string $prefix, array $parts): void {
-        // Überprüfen, ob genügend Parameter vorhanden sind
+        // Check if enough parameters are present
         if (!isset($parts[1])) {
             return;
         }
         
-        // Wenn kein Prefix vorhanden ist, können wir nichts tun
+        // If no prefix is present, we cannot do anything
         if (empty($prefix)) {
             return;
         }
         
-        // Benutzerinformationen aus dem Prefix extrahieren (nick!user@host)
+        // Extract user information from the prefix (nick!user@host)
         $nickInfo = explode('!', $prefix, 2);
         $nick = $nickInfo[0];
         
-        // Kanalname(n) extrahieren
+        // Extract channel name(s)
         $channels = explode(',', $parts[1]);
         
-        // Part-Nachricht extrahieren, falls vorhanden
+        // Extract part message, if present
         $partMessage = '';
         for ($i = 2; $i < count($parts); $i++) {
             if ($parts[$i][0] === ':') {
@@ -497,23 +497,23 @@ class ServerLinkHandler {
             }
         }
         
-        // Für jeden Kanal die Part-Nachricht verarbeiten
+        // Process the part message for each channel
         foreach ($channels as $channelName) {
-            // Kanal holen
+            // Get the channel
             $channel = $this->server->getChannel($channelName);
             if ($channel === null) {
-                continue; // Kanal existiert nicht
+                continue; // Channel does not exist
             }
             
-            // Benutzer im Kanal finden
+            // Find user in the channel
             $userFound = false;
             foreach ($channel->getUsers() as $user) {
                 if ($user->getNick() === $nick) {
-                    // Benutzer aus dem Kanal entfernen
+                    // Remove user from the channel
                     $channel->removeUser($user);
                     $userFound = true;
                     
-                    // Part-Benachrichtigung an alle verbleibenden Benutzer im Kanal senden
+                    // Send PART notification to all remaining users in the channel
                     $partCommand = ":{$prefix} PART {$channelName}";
                     if (!empty($partMessage)) {
                         $partCommand .= " :{$partMessage}";
@@ -527,14 +527,14 @@ class ServerLinkHandler {
                 }
             }
             
-            // Kanal löschen, wenn er leer ist und nicht permanent
+            // Delete channel if it is empty and not permanent
             if ($channel->isEmpty() && !$channel->isPermanent()) {
                 $this->server->removeChannel($channelName);
             }
             
-            // Nur wenn wir den Benutzer gefunden haben, die Nachricht an andere Server weiterleiten
+            // Only if we found the user, forward the message to other servers
             if ($userFound) {
-                // Part-Nachricht an alle anderen Server weiterleiten (außer Ursprungsserver)
+                // Forward PART message to all other servers (except origin server)
                 $partCommand = ":{$prefix} PART {$channelName}";
                 if (!empty($partMessage)) {
                     $partCommand .= " :{$partMessage}";
@@ -545,23 +545,23 @@ class ServerLinkHandler {
     }
     
     /**
-     * Verarbeitet den QUIT-Befehl eines Servers
+     * Processes the QUIT command from a server
      * 
-     * @param ServerLink $serverLink Der Server-Link
-     * @param string $prefix Das Befehlspräfix
-     * @param array $parts Die Befehlsteile
+     * @param ServerLink $serverLink The server link
+     * @param string $prefix The command prefix
+     * @param array $parts The command parts
      */
     private function handleQuitCommand(ServerLink $serverLink, string $prefix, array $parts): void {
-        // Wenn kein Prefix vorhanden ist, können wir nichts tun
+        // If no prefix is present, we cannot do anything
         if (empty($prefix)) {
             return;
         }
         
-        // Benutzerinformationen aus dem Prefix extrahieren (nick!user@host)
+        // Extract user information from the prefix (nick!user@host)
         $nickInfo = explode('!', $prefix, 2);
         $nick = $nickInfo[0];
         
-        // Quit-Nachricht extrahieren, falls vorhanden
+        // Extract quit message, if present
         $quitMessage = '';
         for ($i = 1; $i < count($parts); $i++) {
             if ($parts[$i][0] === ':') {
@@ -570,7 +570,7 @@ class ServerLinkHandler {
             }
         }
         
-        // Remote-Benutzer finden
+        // Find remote user
         $remoteUser = null;
         foreach ($this->server->getUsers() as $user) {
             if ($user->getNick() === $nick && $user->isRemoteUser()) {
@@ -580,10 +580,10 @@ class ServerLinkHandler {
         }
         
         if ($remoteUser === null) {
-            return; // Benutzer nicht gefunden
+            return; // User not found
         }
         
-        // Benutzer aus allen Kanälen entfernen und Quit-Nachricht verteilen
+        // Remove user from all channels and distribute quit message
         $channels = [];
         foreach ($this->server->getChannels() as $channel) {
             if ($channel->hasUser($remoteUser)) {
@@ -591,78 +591,78 @@ class ServerLinkHandler {
             }
         }
         
-        // Quit-Nachricht erstellen
+        // Create quit message
         $quitCommand = ":{$prefix} QUIT";
         if (!empty($quitMessage)) {
             $quitCommand .= " :{$quitMessage}";
         }
         
-        // Benutzer aus jedem Kanal entfernen und Nachricht an Mitglieder senden
+        // Remove user from each channel and send message to members
         foreach ($channels as $channel) {
-            // Benachrichtigung an alle Benutzer im Kanal senden (außer dem, der geht)
+            // Send notification to all users in the channel (except the one leaving)
             foreach ($channel->getUsers() as $user) {
                 if ($user !== $remoteUser) {
                     $user->send($quitCommand);
                 }
             }
             
-            // Benutzer aus dem Kanal entfernen
+            // Remove user from the channel
             $channel->removeUser($remoteUser);
             
-            // Kanal löschen, wenn er leer ist und nicht permanent
+            // Delete channel if it is empty and not permanent
             if ($channel->isEmpty() && !$channel->isPermanent()) {
                 $this->server->removeChannel($channel->getName());
             }
         }
         
-        // Benutzer aus der Benutzerliste des Servers entfernen
+        // Remove user from the server's user list
         $this->server->removeUser($remoteUser);
         
-        // Quit-Nachricht an alle anderen Server weiterleiten (außer Ursprungsserver)
+        // Forward quit message to all other servers (except origin server)
         $this->server->propagateToServers($quitCommand, $serverLink->getName());
     }
     
     /**
-     * Verarbeitet den MODE-Befehl eines Servers
+     * Processes the MODE command from a server
      * 
-     * @param ServerLink $serverLink Der Server-Link
-     * @param string $prefix Das Befehlspräfix
-     * @param array $parts Die Befehlsteile
+     * @param ServerLink $serverLink The server link
+     * @param string $prefix The command prefix
+     * @param array $parts The command parts
      */
     private function handleModeCommand(ServerLink $serverLink, string $prefix, array $parts): void {
-        // Überprüfen, ob genügend Parameter vorhanden sind
+        // Check if enough parameters are present
         if (!isset($parts[1]) || !isset($parts[2])) {
             return;
         }
         
-        // Wenn kein Prefix vorhanden ist, können wir nichts tun
+        // If no prefix is present, we cannot do anything
         if (empty($prefix)) {
             return;
         }
         
-        // Ziel der Mode-Änderung extrahieren (Kanal oder Benutzer)
+        // Extract target of the mode change (channel or user)
         $target = $parts[1];
         $modes = $parts[2];
         
-        // Erstelle den vollständigen MODE-Befehl für die Weiterleitung
+        // Create the full MODE command for forwarding
         $modeCommand = ":{$prefix} MODE {$target} {$modes}";
         
-        // Parameter für die Modus-Änderung hinzufügen, falls vorhanden
+        // Add parameters for the mode change, if present
         for ($i = 3; $i < count($parts); $i++) {
             $modeCommand .= " " . $parts[$i];
         }
         
-        // Überprüfe, ob das Ziel ein Kanal ist
+        // Check if the target is a channel
         if ($target[0] === '#' || $target[0] === '&') {
-            // Modus-Änderung für einen Kanal
+            // Mode change for a channel
             $channel = $this->server->getChannel($target);
             
             if ($channel !== null) {
-                // Benutzerinformationen aus dem Prefix extrahieren (nick!user@host)
+                // Extract user information from the prefix (nick!user@host)
                 $nickInfo = explode('!', $prefix, 2);
                 $nick = $nickInfo[0];
                 
-                // Remote-Benutzer im Kanal suchen
+                // Find remote user in the channel
                 $sourceUser = null;
                 foreach ($channel->getUsers() as $user) {
                     if ($user->getNick() === $nick) {
@@ -671,15 +671,15 @@ class ServerLinkHandler {
                     }
                 }
                 
-                // Verarbeite die Modus-Änderung
+                // Process the mode change
                 if ($sourceUser !== null) {
-                    // Erstelle ein Array für die Parameter (nach dem Modus)
+                    // Create an array for the parameters (after the mode)
                     $modeParams = array_slice($parts, 3);
                     
-                    // Verarbeite die Modus-Änderung lokal
+                    // Process the mode change locally
                     $this->processChannelModeChange($channel, $sourceUser, $modes, $modeParams);
                     
-                    // Modus-Änderung an alle lokalen Benutzer im Kanal senden
+                    // Send mode change to all local users in the channel
                     foreach ($channel->getUsers() as $user) {
                         if (!$user->isRemoteUser()) {
                             $user->send($modeCommand);
@@ -687,18 +687,18 @@ class ServerLinkHandler {
                     }
                 }
                 
-                // MODE-Befehl an alle anderen Server weiterleiten (außer dem Ursprungsserver)
+                // Forward MODE command to all other servers (except the origin server)
                 $this->server->propagateToServers($modeCommand, $serverLink->getName());
             }
         } else {
-            // Modus-Änderung für einen Benutzer
+            // Mode change for a user
             foreach ($this->server->getUsers() as $user) {
                 if ($user->getNick() === $target && !$user->isRemoteUser()) {
-                    // Benutzerinformationen aus dem Prefix extrahieren (nick!user@host)
+                    // Extract user information from the prefix (nick!user@host)
                     $nickInfo = explode('!', $prefix, 2);
                     $sourceNick = $nickInfo[0];
                     
-                    // Nur IRC-Operatoren dürfen Benutzermodi ändern
+                    // Only IRC operators can change user modes
                     $sourceUser = null;
                     foreach ($this->server->getUsers() as $u) {
                         if ($u->getNick() === $sourceNick && ($u->isOper() || $sourceNick === $target)) {
@@ -708,35 +708,35 @@ class ServerLinkHandler {
                     }
                     
                     if ($sourceUser !== null) {
-                        // Verarbeite die Benutzermodus-Änderung lokal
+                        // Process the user mode change locally
                         $this->processUserModeChange($user, $modes);
                         
-                        // Modus-Änderung an den betroffenen Benutzer senden
+                        // Send mode change to the affected user
                         $user->send($modeCommand);
                     }
                     
-                    // MODE-Befehl an alle anderen Server weiterleiten (außer dem Ursprungsserver)
+                    // Forward MODE command to all other servers (except the origin server)
                     $this->server->propagateToServers($modeCommand, $serverLink->getName());
                     return;
                 }
             }
             
-            // Benutzer ist nicht lokal, an andere Server weiterleiten
+            // User is not local, forward to other servers
             $this->server->propagateToServers($modeCommand, $serverLink->getName());
         }
     }
     
     /**
-     * Verarbeitet eine Kanalmodus-Änderung lokal
+     * Processes a channel mode change locally
      * 
-     * @param \PhpIrcd\Models\Channel $channel Der betroffene Kanal
-     * @param \PhpIrcd\Models\User $sourceUser Der Benutzer, der die Änderung durchführt
-     * @param string $modes Die zu ändernden Modi
-     * @param array $params Parameter für die Modus-Änderung
+     * @param \PhpIrcd\Models\Channel $channel The affected channel
+     * @param \PhpIrcd\Models\User $sourceUser The user performing the change
+     * @param string $modes The modes to change
+     * @param array $params Parameters for the mode change
      */
     private function processChannelModeChange(\PhpIrcd\Models\Channel $channel, \PhpIrcd\Models\User $sourceUser, string $modes, array $params): void {
         $paramIndex = 0;
-        $addMode = true;  // Standardmäßig Modi hinzufügen
+        $addMode = true;  // Default to adding modes
         
         for ($i = 0; $i < strlen($modes); $i++) {
             $mode = $modes[$i];
@@ -750,7 +750,7 @@ class ServerLinkHandler {
             }
             
             switch ($mode) {
-                case 'o': // Operator-Status
+                case 'o': // Operator status
                     if (isset($params[$paramIndex])) {
                         $targetNick = $params[$paramIndex++];
                         foreach ($channel->getUsers() as $user) {
@@ -762,7 +762,7 @@ class ServerLinkHandler {
                     }
                     break;
                     
-                case 'v': // Voice-Status
+                case 'v': // Voice status
                     if (isset($params[$paramIndex])) {
                         $targetNick = $params[$paramIndex++];
                         foreach ($channel->getUsers() as $user) {
@@ -797,7 +797,7 @@ class ServerLinkHandler {
                         }
                     } else {
                         $channel->setMode('k', false);
-                        $paramIndex++; // Auch bei Entfernung wird ein Parameter verbraucht
+                        $paramIndex++; // Even when removing, a parameter is consumed
                     }
                     break;
                     
@@ -848,13 +848,13 @@ class ServerLinkHandler {
     }
     
     /**
-     * Verarbeitet eine Benutzermodus-Änderung lokal
+     * Processes a user mode change locally
      * 
-     * @param \PhpIrcd\Models\User $user Der betroffene Benutzer
-     * @param string $modes Die zu ändernden Modi
+     * @param \PhpIrcd\Models\User $user The affected user
+     * @param string $modes The modes to change
      */
     private function processUserModeChange(\PhpIrcd\Models\User $user, string $modes): void {
-        $addMode = true;  // Standardmäßig Modi hinzufügen
+        $addMode = true;  // Default to adding modes
         
         for ($i = 0; $i < strlen($modes); $i++) {
             $mode = $modes[$i];
@@ -876,13 +876,13 @@ class ServerLinkHandler {
                     $user->setMode('w', $addMode);
                     break;
                     
-                case 'o': // Operator (kann nur entfernt werden)
+                case 'o': // Operator (can only be removed)
                     if (!$addMode) {
                         $user->setMode('o', false);
                     }
                     break;
                     
-                case 'r': // Registered nick (kann nur hinzugefügt werden)
+                case 'r': // Registered nick (can only be added)
                     if ($addMode) {
                         $user->setMode('r', true);
                     }
@@ -892,39 +892,39 @@ class ServerLinkHandler {
     }
     
     /**
-     * Verarbeitet den TOPIC-Befehl eines Servers
+     * Processes the TOPIC command from a server
      * 
-     * @param ServerLink $serverLink Der Server-Link
-     * @param string $prefix Das Befehlspräfix
-     * @param array $parts Die Befehlsteile
+     * @param ServerLink $serverLink The server link
+     * @param string $prefix The command prefix
+     * @param array $parts The command parts
      */
     private function handleTopicCommand(ServerLink $serverLink, string $prefix, array $parts): void {
-        // Überprüfen, ob genügend Parameter vorhanden sind
+        // Check if enough parameters are present
         if (!isset($parts[1])) {
             return;
         }
         
-        // Wenn kein Prefix vorhanden ist, können wir nichts tun
+        // If no prefix is present, we cannot do anything
         if (empty($prefix)) {
             return;
         }
         
-        // Kanalname extrahieren
+        // Extract channel name
         $channelName = $parts[1];
         
-        // Kanal finden
+        // Find channel
         $channel = $this->server->getChannel($channelName);
         if ($channel === null) {
-            return; // Kanal existiert nicht
+            return; // Channel does not exist
         }
         
-        // Benutzerinformationen aus dem Prefix extrahieren (nick!user@host)
+        // Extract user information from the prefix (nick!user@host)
         $nickInfo = explode('!', $prefix, 2);
         $nick = $nickInfo[0];
         
-        // Überprüfen, ob der Befehl ein Topic setzt oder abfragt
+        // Check if the command sets or queries a topic
         if (count($parts) > 2) {
-            // Topic setzen
+            // Set topic
             $topic = '';
             for ($i = 2; $i < count($parts); $i++) {
                 if ($parts[$i][0] === ':') {
@@ -933,49 +933,49 @@ class ServerLinkHandler {
                 }
             }
             
-            // Topic im Kanal setzen (nutzt die korrekte Methode mit beiden Parametern)
+            // Set topic in the channel (uses the correct method with both parameters)
             $channel->setTopic($topic, $nick);
             
-            // TOPIC-Befehl erstellen
+            // Create TOPIC command
             $topicCommand = ":{$prefix} TOPIC {$channelName} :{$topic}";
             
-            // Topic-Änderung an alle lokalen Benutzer im Kanal senden
+            // Send topic change to all local users in the channel
             foreach ($channel->getUsers() as $user) {
                 if (!$user->isRemoteUser()) {
                     $user->send($topicCommand);
                 }
             }
             
-            // Topic-Änderung an alle anderen Server weiterleiten (außer dem Ursprungsserver)
+            // Forward topic change to all other servers (except the origin server)
             $this->server->propagateToServers($topicCommand, $serverLink->getName());
         } else {
-            // Topic abfragen - wird normalerweise vom Server direkt beantwortet, nicht weitergeleitet
+            // Query topic - usually answered directly by the server, not forwarded
         }
     }
     
     /**
-     * Verarbeitet PRIVMSG und NOTICE-Befehle eines Servers
+     * Processes PRIVMSG and NOTICE commands from a server
      * 
-     * @param ServerLink $serverLink Der Server-Link
-     * @param string $prefix Das Befehlspräfix
-     * @param string $commandType Der Befehlstyp (PRIVMSG oder NOTICE)
-     * @param array $parts Die Befehlsteile
+     * @param ServerLink $serverLink The server link
+     * @param string $prefix The command prefix
+     * @param string $commandType The command type (PRIVMSG or NOTICE)
+     * @param array $parts The command parts
      */
     private function handleMessageCommand(ServerLink $serverLink, string $prefix, string $commandType, array $parts): void {
-        // Überprüfen, ob genügend Parameter vorhanden sind
+        // Check if enough parameters are present
         if (!isset($parts[1]) || !isset($parts[2])) {
             return;
         }
         
-        // Wenn kein Prefix vorhanden ist, können wir nichts tun
+        // If no prefix is present, we cannot do anything
         if (empty($prefix)) {
             return;
         }
         
-        // Ziel der Nachricht extrahieren
+        // Extract target of the message
         $target = $parts[1];
         
-        // Nachrichteninhalt extrahieren (beginnt mit :)
+        // Extract message content (starts with :)
         $message = '';
         for ($i = 2; $i < count($parts); $i++) {
             if ($parts[$i][0] === ':') {
@@ -988,78 +988,78 @@ class ServerLinkHandler {
             return;
         }
         
-        // Benutzerinformationen aus dem Prefix extrahieren (nick!user@host)
+        // Extract user information from the prefix (nick!user@host)
         $nickInfo = explode('!', $prefix, 2);
         $nick = $nickInfo[0];
         
-        // Erstelle die vollständige Nachricht für die Weiterleitung
+        // Create the full message for forwarding
         $fullCommand = ":{$prefix} {$commandType} {$target} :{$message}";
         
-        // Überprüfe, ob das Ziel ein Kanal ist
+        // Check if the target is a channel
         if ($target[0] === '#' || $target[0] === '&') {
-            // Nachricht an einen Kanal
+            // Message to a channel
             $channel = $this->server->getChannel($target);
             
             if ($channel !== null) {
-                // Nachricht an alle lokalen Benutzer im Kanal senden
+                // Send message to all local users in the channel
                 foreach ($channel->getUsers() as $user) {
-                    // Nicht an Remote-Benutzer oder den Sender selbst
+                    // Do not send to remote users or the sender itself
                     if (!$user->isRemoteUser() && $user->getNick() !== $nick) {
                         $user->send($fullCommand);
                     }
                 }
                 
-                // Nachricht an alle anderen Server weiterleiten (außer dem Ursprungsserver)
+                // Forward message to all other servers (except the origin server)
                 $this->server->propagateToServers($fullCommand, $serverLink->getName());
             }
         } else {
-            // Nachricht an einen Benutzer
+            // Message to a user
             foreach ($this->server->getUsers() as $user) {
                 if ($user->getNick() === $target && !$user->isRemoteUser()) {
-                    // Wenn der Benutzer lokal ist, Nachricht zustellen
+                    // If the user is local, deliver the message
                     $user->send($fullCommand);
                     return;
                 }
             }
             
-            // Benutzer ist nicht lokal, an andere Server weiterleiten (außer dem Ursprungsserver)
+            // User is not local, forward to other servers (except the origin server)
             $this->server->propagateToServers($fullCommand, $serverLink->getName());
         }
     }
     
     /**
-     * Trennt einen Server-Link
+     * Disconnects a server link
      * 
-     * @param ServerLink $serverLink Der zu trennende Server-Link
-     * @param string $reason Der Grund für die Trennung
+     * @param ServerLink $serverLink The server link to disconnect
+     * @param string $reason The reason for disconnection
      */
     private function disconnectServerLink(ServerLink $serverLink, string $reason): void {
-        // Log-Eintrag erstellen
-        $this->server->getLogger()->info("Server-Link zu {$serverLink->getName()} getrennt: {$reason}");
+        // Create log entry
+        $this->server->getLogger()->info("Server link to {$serverLink->getName()} disconnected: {$reason}");
         
-        // Verbindung schließen
+        // Close connection
         $serverLink->disconnect();
     }
     
     /**
-     * Trennt die Verbindung zu einem Server (öffentliche Methode für SQUIT)
+     * Disconnects a server (public method for SQUIT)
      * 
-     * @param \PhpIrcd\Models\ServerLink $serverLink Der zu trennende Server-Link
-     * @param string $reason Der Grund für die Trennung
+     * @param \PhpIrcd\Models\ServerLink $serverLink The server link to disconnect
+     * @param string $reason The reason for disconnection
      */
     public function disconnectServer(\PhpIrcd\Models\ServerLink $serverLink, string $reason = "Server disconnected"): void {
         $this->disconnectServerLink($serverLink, $reason);
         
-        // Server-Link aus der internen Liste entfernen
+        // Remove server link from internal list
         $key = array_search($serverLink, $this->links, true);
         if ($key !== false) {
             unset($this->links[$key]);
-            $this->links = array_values($this->links); // Array neu indizieren
+            $this->links = array_values($this->links); // Reindex array
         }
     }
     
     /**
-     * Sendet Pings an alle verbundenen Server
+     * Sends pings to all connected servers
      */
     private function pingServers(): void {
         $config = $this->server->getConfig();
@@ -1072,29 +1072,29 @@ class ServerLinkHandler {
     }
     
     /**
-     * Gibt alle Server-Links zurück
+     * Returns all server links
      * 
-     * @return array Alle Server-Links
+     * @return array All server links
      */
     public function getServerLinks(): array {
         return $this->links;
     }
     
     /**
-     * Stellt eine ausgehende Verbindung zu einem anderen Server her
+     * Establishes an outgoing connection to another server
      * 
-     * @param string $host Der Hostname oder die IP-Adresse des Zielservers
-     * @param int $port Der Port des Zielservers
-     * @param string $password Das Passwort für die Verbindung
-     * @param bool $useSSL Ob SSL für die Verbindung verwendet werden soll
-     * @return bool Ob die Verbindung erfolgreich hergestellt wurde
+     * @param string $host The hostname or IP address of the target server
+     * @param int $port The port of the target server
+     * @param string $password The password for the connection
+     * @param bool $useSSL Whether to use SSL for the connection
+     * @return bool Whether the connection was successfully established
      */
     public function connectToServer(string $host, int $port, string $password, bool $useSSL = false): bool {
         $config = $this->server->getConfig();
         
         try {
             if ($useSSL) {
-                // SSL-Kontext erstellen
+                // Create SSL context
                 $context = stream_context_create([
                     'ssl' => [
                         'verify_peer' => false,
@@ -1103,7 +1103,7 @@ class ServerLinkHandler {
                     ]
                 ]);
                 
-                // Sichere Verbindung herstellen
+                // Establish secure connection
                 $socket = stream_socket_client(
                     "ssl://{$host}:{$port}", 
                     $errno, 
@@ -1114,27 +1114,27 @@ class ServerLinkHandler {
                 );
                 
                 if (!$socket) {
-                    $this->server->getLogger()->error("Fehler beim Verbinden zu Server {$host}:{$port}: {$errstr} ({$errno})");
+                    $this->server->getLogger()->error("Error connecting to server {$host}:{$port}: {$errstr} ({$errno})");
                     return false;
                 }
                 
                 $serverLink = new ServerLink($socket, $host, $password, true);
             } else {
-                // Normalen Socket erstellen
+                // Create regular socket
                 $socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
                 if (!$socket) {
                     $errorCode = socket_last_error();
                     $errorMsg = socket_strerror($errorCode);
-                    $this->server->getLogger()->error("Fehler beim Erstellen des Socket: {$errorCode} - {$errorMsg}");
+                    $this->server->getLogger()->error("Error creating socket: {$errorCode} - {$errorMsg}");
                     return false;
                 }
                 
-                // Verbindung herstellen
+                // Establish connection
                 $result = socket_connect($socket, $host, $port);
                 if (!$result) {
                     $errorCode = socket_last_error($socket);
                     $errorMsg = socket_strerror($errorCode);
-                    $this->server->getLogger()->error("Fehler beim Verbinden zu Server {$host}:{$port}: {$errorCode} - {$errorMsg}");
+                    $this->server->getLogger()->error("Error connecting to server {$host}:{$port}: {$errorCode} - {$errorMsg}");
                     socket_close($socket);
                     return false;
                 }
@@ -1142,16 +1142,16 @@ class ServerLinkHandler {
                 $serverLink = new ServerLink($socket, $host, $password);
             }
             
-            // Server-Link hinzufügen
+            // Add server link
             $this->addServerLink($serverLink);
             
-            // PASS und SERVER-Befehle senden
+            // Send PASS and SERVER commands
             $serverLink->send("PASS {$password}");
             $serverLink->send("SERVER {$config['name']} 1 :{$config['description']}");
             
             return true;
         } catch (\Exception $e) {
-            $this->server->getLogger()->error("Ausnahme beim Verbinden zu Server {$host}:{$port}: " . $e->getMessage());
+            $this->server->getLogger()->error("Exception connecting to server {$host}:{$port}: " . $e->getMessage());
             return false;
         }
     }
