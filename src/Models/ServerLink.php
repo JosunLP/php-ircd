@@ -19,6 +19,7 @@ class ServerLink {
     private $token = null;
     private $isStreamSocket = false;
     private $buffer = '';
+    private $host = '';  // Hostnamen oder IP-Adresse des entfernten Servers
     
     /**
      * Constructor
@@ -27,13 +28,15 @@ class ServerLink {
      * @param string $name Der Name des entfernten Servers
      * @param string $password Das Verbindungspasswort
      * @param bool $isStreamSocket Ob es sich um einen Stream-Socket handelt
+     * @param string $host Der Hostname oder die IP-Adresse des entfernten Servers
      */
-    public function __construct($socket, string $name, string $password, bool $isStreamSocket = false) {
+    public function __construct($socket, string $name, string $password, bool $isStreamSocket = false, string $host = '') {
         $this->socket = $socket;
         $this->name = $name;
         $this->password = $password;
         $this->isStreamSocket = $isStreamSocket;
         $this->lastActivity = time();
+        $this->host = $host;
         
         // Socket auf nicht-blockierend setzen
         if ($isStreamSocket) {
@@ -208,5 +211,25 @@ class ServerLink {
      */
     public function getPassword(): string {
         return $this->password;
+    }
+    
+    /**
+     * Setter für das Passwort
+     * 
+     * @param string $password Das zu setzende Passwort
+     */
+    public function setPassword(string $password): void {
+        $this->password = $password;
+    }
+    
+    /**
+     * Getter und Setter für den Host des Servers
+     */
+    public function getHost(): string {
+        return $this->host;
+    }
+    
+    public function setHost(string $host): void {
+        $this->host = $host;
     }
 }

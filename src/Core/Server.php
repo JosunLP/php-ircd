@@ -22,6 +22,26 @@ class Server {
     private $serverLinks = [];
     
     /**
+     * Die unterstützten IRCv3 Capabilities
+     * @var array
+     */
+    private $supportedCapabilities = [
+        'multi-prefix' => true,      // Mehrere Präfixe für Benutzer im Kanal
+        'away-notify' => true,       // Benachrichtigung wenn Benutzer away-Status ändert
+        'server-time' => true,       // Zeitstempel für Nachrichten
+        'batch' => true,             // Nachrichtenbündelung
+        'message-tags' => true,      // Tags in Nachrichten
+        'echo-message' => true,      // Echo der eigenen Nachrichten
+        'invite-notify' => true,     // Benachrichtigungen über Einladungen
+        'extended-join' => true,     // Erweiterte JOIN-Befehle mit Realname
+        'userhost-in-names' => true, // Vollständige Hostmasken in NAMES-Liste
+        'chathistory' => true,       // Abruf der Kanalhistorie
+        'account-notify' => true,    // Kontoauthentifizierungsänderungen
+        'account-tag' => true,       // Account-Tags in Nachrichten
+        'cap-notify' => true         // Benachrichtigungen über CAP-Änderungen
+    ];
+    
+    /**
      * Constructor
      * 
      * @param array $config The server configuration
@@ -947,5 +967,34 @@ class Server {
             // Nachricht an den verknüpften Server senden
             $serverLink->send($message);
         }
+    }
+    
+    /**
+     * Get the hostname of the server
+     * 
+     * @return string The hostname or IP address of the server
+     */
+    public function getHost(): string {
+        return $this->config['bind_ip'] ?? '127.0.0.1';
+    }
+    
+    /**
+     * Gibt alle unterstützten IRCv3 Capabilities zurück
+     * 
+     * @return array Ein Array mit den unterstützten Capabilities
+     */
+    public function getSupportedCapabilities(): array {
+        return array_keys($this->supportedCapabilities);
+    }
+    
+    /**
+     * Überprüft, ob eine bestimmte Capability unterstützt wird
+     * 
+     * @param string $capability Die zu überprüfende Capability
+     * @return bool True, wenn die Capability unterstützt wird
+     */
+    public function isCapabilitySupported(string $capability): bool {
+        return isset($this->supportedCapabilities[$capability]) && 
+               $this->supportedCapabilities[$capability] === true;
     }
 }

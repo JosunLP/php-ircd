@@ -26,6 +26,9 @@ class User {
     private $watchList = []; // Neu: Liste von beobachteten Nicknames (WATCH)
     private $saslMechanism = null; // Speichert den SASL-Mechanismus während der Authentifizierung
     private $capabilityNegotiationInProgress = false; // Ob CAP-Verhandlung gerade läuft
+    private $isRemoteUser = false; // Neu: Flag für Remote-Benutzer
+    private $remoteServer = null; // Neu: Name des Remote-Servers
+    private $server = null; // Neu: Referenz auf den Server, in dem der Benutzer registriert ist
     
     /**
      * Constructor
@@ -618,5 +621,78 @@ class User {
      */
     public function isSecureConnection(): bool {
         return $this->isStreamSocket;
+    }
+
+    /**
+     * Set the remote user flag
+     * 
+     * @param bool $isRemoteUser Whether the user is remote
+     */
+    public function setRemoteUser(bool $isRemoteUser): void {
+        $this->isRemoteUser = $isRemoteUser;
+    }
+
+    /**
+     * Check if the user is remote
+     * 
+     * @return bool Whether the user is remote
+     */
+    public function isRemoteUser(): bool {
+        return $this->isRemoteUser;
+    }
+
+    /**
+     * Set the remote server name
+     * 
+     * @param string|null $remoteServer The name of the remote server
+     */
+    public function setRemoteServer(?string $remoteServer): void {
+        $this->remoteServer = $remoteServer;
+    }
+
+    /**
+     * Get the remote server name
+     * 
+     * @return string|null The name of the remote server
+     */
+    public function getRemoteServer(): ?string {
+        return $this->remoteServer;
+    }
+
+    /**
+     * Set the server instance that created this user
+     * 
+     * @param mixed $server The server instance
+     */
+    public function setServer($server): void {
+        $this->server = $server;
+    }
+
+    /**
+     * Get the server instance that created this user
+     * 
+     * @return mixed The server instance
+     */
+    public function getServer() {
+        return $this->server;
+    }
+
+    /**
+     * Get the full IRC mask of the user in standard format
+     * 
+     * @return string The IRC mask in format nick!ident@host
+     */
+    public function getMask(): string {
+        return $this->nick . '!' . $this->ident . '@' . $this->cloak;
+    }
+
+    /**
+     * Gibt einen eindeutigen Identifikator für den Benutzer zurück
+     * In diesem Fall wird der Nickname verwendet, da er eindeutig sein muss
+     * 
+     * @return string|null Der eindeutige Identifikator oder null wenn nicht verfügbar
+     */
+    public function getId(): ?string {
+        return $this->nick;
     }
 }

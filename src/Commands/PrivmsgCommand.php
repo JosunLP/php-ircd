@@ -93,6 +93,12 @@ class PrivmsgCommand extends CommandBase {
         // Send message to the target user
         $formattedMessage = ":{$nick}!{$user->getIdent()}@{$user->getCloak()} PRIVMSG {$target} :{$message}";
         
+        // IRCv3 ECHO-MESSAGE: Wenn der Sender echo-message unterstützt, sende die Nachricht auch an ihn
+        if ($user->hasCapability('echo-message')) {
+            $echoMessage = IRCv3Helper::addServerTimeIfSupported($formattedMessage, $user);
+            $user->send($echoMessage);
+        }
+        
         // Mit IRCv3-Features erweitern (z.B. server-time)
         $enhancedMessage = IRCv3Helper::addServerTimeIfSupported($formattedMessage, $targetUser);
         
@@ -133,6 +139,16 @@ class PrivmsgCommand extends CommandBase {
         
         // Send message to all users in the channel (except the sender)
         $formattedMessage = ":{$nick}!{$user->getIdent()}@{$user->getCloak()} PRIVMSG {$channelName} :{$message}";
+        
+        // IRCv3 ECHO-MESSAGE: Wenn der Sender echo-message unterstützt, sende die Nachricht auch an ihn
+        if ($user->hasCapability('echo-message')) {
+            $echoMessage = IRCv3Helper::addServerTimeIfSupported($formattedMessage, $user);
+            $user->send($echoMessage);
+        }
+        
+        // Nachricht zur Kanalhistorie hinzufügen für CHATHISTORY
+        $channel->addMessageToHistory($formattedMessage, $nick);
+        
         foreach ($channel->getUsers() as $channelUser) {
             if ($channelUser !== $user) {
                 // Mit IRCv3-Features erweitern (z.B. server-time)

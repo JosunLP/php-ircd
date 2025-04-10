@@ -30,6 +30,19 @@ class Channel {
     private $permanent = false;   // Neu: Flag für permanente Kanäle
     
     /**
+     * Speichert die Nachrichtenhistorie des Kanals
+     * Format: [['message' => string, 'timestamp' => int, 'sender' => string], ...]
+     * @var array
+     */
+    private $messageHistory = [];
+    
+    /**
+     * Maximale Anzahl der zu speichernden Nachrichten
+     * @var int
+     */
+    private $historyLimit = 100;
+    
+    /**
      * Constructor
      * 
      * @param string $name The channel name
@@ -630,6 +643,31 @@ class Channel {
     }
     
     /**
+     * Prüft, ob ein Kanalname gültig ist
+     * 
+     * @param string $name Der zu prüfende Kanalname
+     * @return bool Ob der Kanalname gültig ist
+     */
+    public static function isValidChannelName(string $name): bool {
+        // Kanal muss mit # oder & beginnen
+        if (!in_array($name[0], ['#', '&'])) {
+            return false;
+        }
+        
+        // Kanalname darf keine Leerzeichen, Kommas oder Steuerzeichen enthalten
+        if (preg_match('/[\s,\x00-\x1F]/', $name)) {
+            return false;
+        }
+        
+        // Kanalname darf nicht länger als 50 Zeichen sein
+        if (strlen($name) > 50) {
+            return false;
+        }
+        
+        return true;
+    }
+    
+    /**
      * Setzt den Permanenz-Status des Kanals
      * 
      * @param bool $permanent True, wenn der Kanal permanent sein soll
@@ -663,5 +701,66 @@ class Channel {
      */
     public function getLimit(): int {
         return $this->limit;
+    }
+    
+    /**
+     * Fügt eine Nachricht zur Kanalhistorie hinzu
+     * 
+     * @param string $message Die vollständige Nachricht
+     * @param string $sender Der Absender der Nachricht (Nickname)
+     * @param int|null $timestamp Der Zeitstempel oder null für aktuelle Zeit
+     */
+    public function addMessageToHistory(string $message, string $sender, ?int $timestamp = null): void {
+        if ($timestamp === null) {
+            $timestamp = time();
+        }
+        
+        // Neue Nachricht zur Historie hinzufügen
+        $this->messageHistory[] = [
+            'message' => $message,
+            'timestamp' => $timestamp,
+            'sender' => $sender
+        ];
+        
+        // Älteste Nachricht entfernen, wenn das Limit erreicht ist
+        if (count($this->messageHistory) > $this->historyLimit) {
+            array_shift($this->messageHistory);
+        }
+    }
+    
+    /**
+     * Gibt die Nachrichtenhistorie zurück
+     * 
+     * @param int $limit Maximale Anzahl der zurückzugebenden Nachrichten
+     * @return array Die Nachrichtenhistorie
+     */
+    public function getMessageHistory(int $limit = 50): array {
+        $limit = min($limit, count($this->messageHistory));
+        
+        // Die neuesten $limit Nachrichten zurückgeben (in chronologischer Reihenfolge)
+        return array_slice($this->messageHistory, -$limit);
+    }
+    
+    /**
+     * Setzt das Limit für die Nachrichtenhistorie
+     * 
+     * @param int $limit Das neue Limit
+     */
+    public function setHistoryLimit(int $limit): void {
+        $this->historyLimit = max(0, $limit);
+        
+        // Überprüfe, ob nach Änderung des Limits Nachrichten entfernt werden müssen
+        while (count($this->messageHistory) > $this->historyLimit) {
+            array_shift($this->messageHistory);
+        }
+    }
+    
+    /**
+     * Prüft, ob der Kanal keine Benutzer mehr hat
+     * 
+     * @return bool Ob der Kanal leer ist
+     */
+    public function isEmpty(): bool {
+        return count($this->users) === 0;
     }
 }

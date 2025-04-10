@@ -4,6 +4,8 @@ namespace PhpIrcd\Handlers;
 
 use PhpIrcd\Core\Server;
 use PhpIrcd\Models\ServerLink;
+use PhpIrcd\Models\Channel;
+use PhpIrcd\Models\User;
 
 class ServerLinkHandler {
     private $server;
@@ -753,11 +755,7 @@ class ServerLinkHandler {
                         $targetNick = $params[$paramIndex++];
                         foreach ($channel->getUsers() as $user) {
                             if ($user->getNick() === $targetNick) {
-                                if ($addMode) {
-                                    $channel->addOperator($user);
-                                } else {
-                                    $channel->removeOperator($user);
-                                }
+                                $channel->setOperator($user, $addMode);
                                 break;
                             }
                         }
@@ -769,11 +767,7 @@ class ServerLinkHandler {
                         $targetNick = $params[$paramIndex++];
                         foreach ($channel->getUsers() as $user) {
                             if ($user->getNick() === $targetNick) {
-                                if ($addMode) {
-                                    $channel->addVoiced($user);
-                                } else {
-                                    $channel->removeVoiced($user);
-                                }
+                                $channel->setVoiced($user, $addMode);
                                 break;
                             }
                         }
@@ -781,44 +775,28 @@ class ServerLinkHandler {
                     break;
                     
                 case 'i': // Invite-Only
-                    if ($addMode) {
-                        $channel->setInviteOnly(true);
-                    } else {
-                        $channel->setInviteOnly(false);
-                    }
+                    $channel->setMode('i', $addMode);
                     break;
                     
                 case 'm': // Moderated
-                    if ($addMode) {
-                        $channel->setModerated(true);
-                    } else {
-                        $channel->setModerated(false);
-                    }
+                    $channel->setMode('m', $addMode);
                     break;
                     
                 case 's': // Secret
-                    if ($addMode) {
-                        $channel->setSecret(true);
-                    } else {
-                        $channel->setSecret(false);
-                    }
+                    $channel->setMode('s', $addMode);
                     break;
                     
                 case 't': // Topic-Protection
-                    if ($addMode) {
-                        $channel->setTopicProtection(true);
-                    } else {
-                        $channel->setTopicProtection(false);
-                    }
+                    $channel->setMode('t', $addMode);
                     break;
                     
                 case 'k': // Key (Password)
                     if ($addMode) {
                         if (isset($params[$paramIndex])) {
-                            $channel->setKey($params[$paramIndex++]);
+                            $channel->setMode('k', true, $params[$paramIndex++]);
                         }
                     } else {
-                        $channel->setKey('');
+                        $channel->setMode('k', false);
                         $paramIndex++; // Auch bei Entfernung wird ein Parameter verbraucht
                     }
                     break;
@@ -826,10 +804,10 @@ class ServerLinkHandler {
                 case 'l': // Limit
                     if ($addMode) {
                         if (isset($params[$paramIndex])) {
-                            $channel->setLimit((int)$params[$paramIndex++]);
+                            $channel->setMode('l', true, (int)$params[$paramIndex++]);
                         }
                     } else {
-                        $channel->setLimit(0);
+                        $channel->setMode('l', false);
                     }
                     break;
                     
@@ -837,7 +815,7 @@ class ServerLinkHandler {
                     if (isset($params[$paramIndex])) {
                         $banMask = $params[$paramIndex++];
                         if ($addMode) {
-                            $channel->addBan($banMask);
+                            $channel->addBan($banMask, $sourceUser->getNick());
                         } else {
                             $channel->removeBan($banMask);
                         }
@@ -848,9 +826,9 @@ class ServerLinkHandler {
                     if (isset($params[$paramIndex])) {
                         $exceptionMask = $params[$paramIndex++];
                         if ($addMode) {
-                            $channel->addExempt($exceptionMask);
+                            $channel->addBanException($exceptionMask, $sourceUser->getNick());
                         } else {
-                            $channel->removeExempt($exceptionMask);
+                            $channel->removeBanException($exceptionMask);
                         }
                     }
                     break;
@@ -859,9 +837,11 @@ class ServerLinkHandler {
                     if (isset($params[$paramIndex])) {
                         $inviteExceptionMask = $params[$paramIndex++];
                         if ($addMode) {
-                            $channel->addInviteExempt($inviteExceptionMask);
+                            $channel->invite($inviteExceptionMask, $sourceUser->getNick());
                         } else {
-                            $channel->removeInviteExempt($inviteExceptionMask);
+                            // Hier könnte ein Problem sein, weil die Methode nicht implementiert ist
+                            // Eine Erweiterung der Channel-Klasse wäre notwendig
+                            $this->server->getLogger()->warning("Methode zum Entfernen von Einladungsausnahmen nicht implementiert");
                         }
                     }
                     break;
@@ -891,22 +871,22 @@ class ServerLinkHandler {
             
             switch ($mode) {
                 case 'i': // Invisible
-                    $user->setInvisible($addMode);
+                    $user->setMode('i', $addMode);
                     break;
                     
                 case 'w': // Wallops
-                    $user->setWallops($addMode);
+                    $user->setMode('w', $addMode);
                     break;
                     
                 case 'o': // Operator (kann nur entfernt werden)
                     if (!$addMode) {
-                        $user->setOper(false);
+                        $user->setMode('o', false);
                     }
                     break;
                     
                 case 'r': // Registered nick (kann nur hinzugefügt werden)
                     if ($addMode) {
-                        $user->setRegistered(true);
+                        $user->setMode('r', true);
                     }
                     break;
             }
@@ -955,10 +935,8 @@ class ServerLinkHandler {
                 }
             }
             
-            // Topic im Kanal setzen
-            $channel->setTopic($topic);
-            $channel->setTopicSetBy($nick);
-            $channel->setTopicTime(time());
+            // Topic im Kanal setzen (nutzt die korrekte Methode mit beiden Parametern)
+            $channel->setTopic($topic, $nick);
             
             // TOPIC-Befehl erstellen
             $topicCommand = ":{$prefix} TOPIC {$channelName} :{$topic}";
