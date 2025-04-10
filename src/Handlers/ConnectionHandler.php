@@ -70,6 +70,8 @@ class ConnectionHandler {
         $this->registerCommandHandler('LUSERS', new \PhpIrcd\Commands\LusersCommand($this->server));
         $this->registerCommandHandler('SILENCE', new \PhpIrcd\Commands\SilenceCommand($this->server));
         $this->registerCommandHandler('KNOCK', new \PhpIrcd\Commands\KnockCommand($this->server));
+        $this->registerCommandHandler('SERVICE', new \PhpIrcd\Commands\ServiceCommand($this->server));
+        $this->registerCommandHandler('SQUIT', new \PhpIrcd\Commands\SquitCommand($this->server));
     }
     
     /**
