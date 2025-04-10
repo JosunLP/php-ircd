@@ -3,21 +3,21 @@
 namespace PhpIrcd\Utils;
 
 /**
- * Hilfsklasse für die Unterstützung von IRCv3-Features
+ * Helper class for supporting IRCv3 features
  */
 class IRCv3Helper {
     /**
-     * Generiert einen ISO 8601 konformen Zeitstempel für die server-time Capability
+     * Generates an ISO 8601 compliant timestamp for the server-time capability
      * 
-     * @param int|null $time Unix-Zeitstempel oder null für die aktuelle Zeit
-     * @return string Der formatierte Zeitstempel
+     * @param int|null $time Unix timestamp or null for the current time
+     * @return string The formatted timestamp
      */
     public static function formatServerTime(?int $time = null): string {
         if ($time === null) {
             $time = time();
         }
         
-        // Format: YYYY-MM-DDThh:mm:ss.sssZ (ISO 8601 mit Millisekunden)
+        // Format: YYYY-MM-DDThh:mm:ss.sssZ (ISO 8601 with milliseconds)
         $microseconds = microtime(true);
         $milliseconds = sprintf('.%03d', ($microseconds - floor($microseconds)) * 1000);
         
@@ -25,18 +25,18 @@ class IRCv3Helper {
     }
     
     /**
-     * Fügt IRCv3-Tags zu einer Nachricht hinzu
+     * Adds IRCv3 tags to a message
      * 
-     * @param string $message Die ursprüngliche Nachricht
-     * @param array $tags Die hinzuzufügenden Tags
-     * @return string Die Nachricht mit Tags
+     * @param string $message The original message
+     * @param array $tags The tags to add
+     * @return string The message with tags
      */
     public static function addMessageTags(string $message, array $tags): string {
         if (empty($tags)) {
             return $message;
         }
         
-        // Tags formatieren
+        // Format tags
         $tagsString = '';
         foreach ($tags as $key => $value) {
             if ($tagsString !== '') {
@@ -44,11 +44,11 @@ class IRCv3Helper {
             }
             
             if ($value === true) {
-                // Tag ohne Wert
+                // Tag without value
                 $tagsString .= $key;
             } else {
-                // Tag mit Wert
-                // Escapen von Sonderzeichen nach IRCv3-Spec
+                // Tag with value
+                // Escape special characters according to IRCv3 spec
                 $escapedValue = str_replace([';', ' ', '\\', "\r", "\n"], ['\\:', '\\s', '\\\\', '\\r', '\\n'], $value);
                 $tagsString .= $key . '=' . $escapedValue;
             }
@@ -58,15 +58,15 @@ class IRCv3Helper {
     }
     
     /**
-     * Fügt den server-time Tag zu einer Nachricht hinzu, wenn der Benutzer die Capability hat
+     * Adds the server-time tag to a message if the user has the capability
      * 
-     * @param string $message Die ursprüngliche Nachricht
-     * @param \PhpIrcd\Models\User $user Der Benutzer, der die Nachricht empfängt
-     * @param int|null $time Der Zeitstempel oder null für aktuelle Zeit
-     * @return string Die modifizierte Nachricht
+     * @param string $message The original message
+     * @param \PhpIrcd\Models\User $user The user receiving the message
+     * @param int|null $time The timestamp or null for the current time
+     * @return string The modified message
      */
     public static function addServerTimeIfSupported(string $message, \PhpIrcd\Models\User $user, ?int $time = null): string {
-        // Nur wenn der Benutzer die server-time Capability hat
+        // Only if the user has the server-time capability
         if (!$user->hasCapability('server-time')) {
             return $message;
         }
@@ -76,28 +76,28 @@ class IRCv3Helper {
     }
 
     /**
-     * Verwaltet die aktiven Batch-Sitzungen pro Benutzer
+     * Manages active batch sessions per user
      * Format: ['user_id' => ['batch_id' => ['type' => string, 'tags' => array]]]
      * @var array
      */
     private static $activeBatches = [];
     
     /**
-     * Generiert eine eindeutige Batch-ID
+     * Generates a unique batch ID
      * 
-     * @return string Die erzeugte Batch-ID
+     * @return string The generated batch ID
      */
     public static function generateBatchId(): string {
         return bin2hex(random_bytes(4));
     }
     
     /**
-     * Startet eine neue Batch-Sitzung für einen Benutzer
+     * Starts a new batch session for a user
      * 
-     * @param \PhpIrcd\Models\User $user Der Benutzer
-     * @param string $type Der Typ des Batches (z.B. 'chathistory', 'netsplit')
-     * @param array $tags Zusätzliche Tags für den Batch
-     * @return string Die Batch-ID der neuen Sitzung
+     * @param \PhpIrcd\Models\User $user The user
+     * @param string $type The type of the batch (e.g., 'chathistory', 'netsplit')
+     * @param array $tags Additional tags for the batch
+     * @return string The batch ID of the new session
      */
     public static function startBatch(\PhpIrcd\Models\User $user, string $type, array $tags = []): string {
         if (!$user->hasCapability('batch')) {
@@ -116,13 +116,13 @@ class IRCv3Helper {
             'tags' => $tags
         ];
         
-        // Sende den BATCH-Start-Befehl an den Benutzer
+        // Send the BATCH start command to the user
         $batchCommand = "BATCH +{$batchId} {$type}";
         
-        // Füge zusätzliche Parameter zum Batch-Befehl hinzu
+        // Add additional parameters to the batch command
         foreach ($tags as $key => $value) {
             if (is_numeric($key)) {
-                // Reiner Parameter ohne Schlüssel
+                // Pure parameter without key
                 $batchCommand .= " {$value}";
             }
         }
@@ -133,11 +133,11 @@ class IRCv3Helper {
     }
     
     /**
-     * Beendet eine aktive Batch-Sitzung für einen Benutzer
+     * Ends an active batch session for a user
      * 
-     * @param \PhpIrcd\Models\User $user Der Benutzer
-     * @param string $batchId Die ID des zu beendenden Batches
-     * @return bool True wenn erfolgreich, sonst false
+     * @param \PhpIrcd\Models\User $user The user
+     * @param string $batchId The ID of the batch to end
+     * @return bool True if successful, otherwise false
      */
     public static function endBatch(\PhpIrcd\Models\User $user, string $batchId): bool {
         $userId = $user->getId();
@@ -146,13 +146,13 @@ class IRCv3Helper {
             return false;
         }
         
-        // Sende den BATCH-End-Befehl an den Benutzer
+        // Send the BATCH end command to the user
         $user->send("BATCH -{$batchId}");
         
-        // Entferne den Batch aus der Liste der aktiven Batches
+        // Remove the batch from the list of active batches
         unset(self::$activeBatches[$userId][$batchId]);
         
-        // Entferne den Benutzer aus der Liste, wenn keine aktiven Batches mehr vorhanden sind
+        // Remove the user from the list if no active batches remain
         if (empty(self::$activeBatches[$userId])) {
             unset(self::$activeBatches[$userId]);
         }
@@ -161,12 +161,12 @@ class IRCv3Helper {
     }
     
     /**
-     * Fügt eine Nachricht zu einem Batch hinzu
+     * Adds a message to a batch
      * 
-     * @param \PhpIrcd\Models\User $user Der Benutzer
-     * @param string $batchId Die ID des Batches
-     * @param string $message Die Nachricht
-     * @return bool True wenn erfolgreich, sonst false
+     * @param \PhpIrcd\Models\User $user The user
+     * @param string $batchId The ID of the batch
+     * @param string $message The message
+     * @return bool True if successful, otherwise false
      */
     public static function addMessageToBatch(\PhpIrcd\Models\User $user, string $batchId, string $message): bool {
         $userId = $user->getId();
@@ -175,59 +175,59 @@ class IRCv3Helper {
             return false;
         }
         
-        // Füge Batch-Tag zur Nachricht hinzu
+        // Add batch tag to the message
         $taggedMessage = self::addMessageTags($message, ['batch' => $batchId]);
         
-        // Sende die markierte Nachricht an den Benutzer
+        // Send the tagged message to the user
         $user->send($taggedMessage);
         
         return true;
     }
     
     /**
-     * Überprüft, ob ein Benutzer IRCv3 Message-Tags unterstützt
+     * Checks if a user supports IRCv3 message tags
      * 
-     * @param \PhpIrcd\Models\User $user Der zu prüfende Benutzer
-     * @return bool True wenn der Benutzer Message-Tags unterstützt
+     * @param \PhpIrcd\Models\User $user The user to check
+     * @return bool True if the user supports message tags
      */
     public static function supportsMessageTags(\PhpIrcd\Models\User $user): bool {
         return $user->hasCapability('message-tags');
     }
     
     /**
-     * Implementiert die CHATHISTORY-Funktionalität (gemäß IRCv3)
+     * Implements the CHATHISTORY functionality (according to IRCv3)
      * 
-     * @param \PhpIrcd\Models\User $user Der Benutzer, der die Historie anfordert
-     * @param \PhpIrcd\Models\Channel $channel Der Kanal, dessen Historie angefordert wird
-     * @param int $limit Maximale Anzahl an Nachrichten
-     * @return bool True wenn die Historie erfolgreich gesendet wurde
+     * @param \PhpIrcd\Models\User $user The user requesting the history
+     * @param \PhpIrcd\Models\Channel $channel The channel whose history is requested
+     * @param int $limit Maximum number of messages
+     * @return bool True if the history was successfully sent
      */
     public static function sendChannelHistory(\PhpIrcd\Models\User $user, \PhpIrcd\Models\Channel $channel, int $limit = 50): bool {
         if (!$user->hasCapability('batch') || !$user->hasCapability('chathistory')) {
             return false;
         }
         
-        // In einer richtigen Implementierung würden wir hier die tatsächliche 
-        // Nachrichtenhistorie aus einer Datenbank oder einem Ringpuffer laden
+        // In a proper implementation, we would load the actual
+        // message history from a database or a ring buffer here
         $history = $channel->getMessageHistory($limit);
         
         if (empty($history)) {
             return false;
         }
         
-        // Batch starten
+        // Start batch
         $batchId = self::startBatch($user, 'chathistory', [$channel->getName()]);
         
         if (empty($batchId)) {
             return false;
         }
         
-        // Nachrichten im Batch senden
+        // Send messages in the batch
         foreach ($history as $historyItem) {
             $message = $historyItem['message'];
             $timestamp = $historyItem['timestamp'] ?? null;
             
-            // Nachricht mit Zeitstempel versehen, wenn verfügbar
+            // Add timestamp to the message if available
             if ($timestamp !== null && $user->hasCapability('server-time')) {
                 $message = self::addMessageTags($message, ['time' => self::formatServerTime($timestamp)]);
             }
@@ -235,19 +235,19 @@ class IRCv3Helper {
             self::addMessageToBatch($user, $batchId, $message);
         }
         
-        // Batch beenden
+        // End batch
         self::endBatch($user, $batchId);
         
         return true;
     }
     
     /**
-     * Generiert und sendet eine standardisierte IRCv3-Fehlermeldung
+     * Generates and sends a standardized IRCv3 error message
      * 
-     * @param \PhpIrcd\Models\User $user Der Benutzer, der die Fehlermeldung erhält
-     * @param string $command Der Befehl, der den Fehler verursacht hat
-     * @param string $code Der Fehlercode (z.B. 'INVALID_PARAMS')
-     * @param string $description Eine menschenlesbare Beschreibung des Fehlers
+     * @param \PhpIrcd\Models\User $user The user receiving the error message
+     * @param string $command The command that caused the error
+     * @param string $code The error code (e.g., 'INVALID_PARAMS')
+     * @param string $description A human-readable description of the error
      */
     public static function sendErrorMessage(\PhpIrcd\Models\User $user, string $command, string $code, string $description): void {
         $serverName = $user->getServer()->getConfig()['name'] ?? 'server';
@@ -261,24 +261,24 @@ class IRCv3Helper {
     }
     
     /**
-     * Verarbeitet einen eingehenden ECHO-Befehl gemäß IRCv3 echo-message
+     * Processes an incoming ECHO command according to IRCv3 echo-message
      * 
-     * @param \PhpIrcd\Models\User $user Der Benutzer, der den Befehl sendet
-     * @param string $originalMessage Die Originalnachricht
+     * @param \PhpIrcd\Models\User $user The user sending the command
+     * @param string $originalMessage The original message
      */
     public static function handleEchoMessage(\PhpIrcd\Models\User $user, string $originalMessage): void {
         if (!$user->hasCapability('echo-message')) {
             return;
         }
         
-        // Verwende die tatsächliche Benutzermaske für das Echo
-        $nick = $user->getNick() ?: '*'; // Verwende leeren String statt null mit dem Elvis-Operator
+        // Use the actual user mask for the echo
+        $nick = $user->getNick() ?: '*'; // Use empty string instead of null with the Elvis operator
         $ident = $user->getIdent() ?: '*';
-        $host = $user->getHost() ?: '*'; // Verwende den Host statt des Cloaks für das Echo
+        $host = $user->getHost() ?: '*'; // Use the host instead of the cloak for the echo
         
         $echoPrefixed = ":{$nick}!{$ident}@{$host} {$originalMessage}";
         
-        // Füge server-time hinzu, wenn unterstützt
+        // Add server-time if supported
         $echoMessage = self::addServerTimeIfSupported($echoPrefixed, $user);
         
         $user->send($echoMessage);
