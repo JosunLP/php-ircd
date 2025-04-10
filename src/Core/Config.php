@@ -34,6 +34,20 @@ class Config {
         ],
         'storage_dir' => 'storage',              // Verzeichnis für Datenspeicherung
         'log_to_console' => true,                // Logs in Konsole anzeigen
+        
+        // Admin-Informationen für den ADMIN-Befehl
+        'admin_name' => 'PHP-IRCd Administrator',  // Name des Administrators
+        'admin_email' => 'admin@example.com',      // E-Mail des Administrators
+        'admin_location' => 'Lokal',               // Standort des Servers
+        
+        // Server-Informationen für den INFO-Befehl
+        'server_info' => [
+            'PHP-IRCd Server basierend auf Danoserv',
+            'Läuft auf PHP 8.0+',
+            'Erstellt im April 2025',
+            'Ursprünglich erstellt von Daniel Danopia (2008)',
+            'Mit Web-Schnittstelle für einfache Bedienung'
+        ],
     ];
     
     /**

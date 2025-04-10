@@ -55,6 +55,13 @@ class ConnectionHandler {
         $this->registerCommandHandler('REHASH', new \PhpIrcd\Commands\RehashCommand($this->server));
         $this->registerCommandHandler('REGISTER', new \PhpIrcd\Commands\RegisterCommand($this->server));
         $this->registerCommandHandler('UNREGISTER', new \PhpIrcd\Commands\UnregisterCommand($this->server));
+        
+        // Neue Befehle registrieren
+        $this->registerCommandHandler('ADMIN', new \PhpIrcd\Commands\AdminCommand($this->server));
+        $this->registerCommandHandler('INFO', new \PhpIrcd\Commands\InfoCommand($this->server));
+        $this->registerCommandHandler('WALLOPS', new \PhpIrcd\Commands\WallopsCommand($this->server));
+        $this->registerCommandHandler('USERHOST', new \PhpIrcd\Commands\UserhostCommand($this->server));
+        $this->registerCommandHandler('ISON', new \PhpIrcd\Commands\IsonCommand($this->server));
     }
     
     /**
