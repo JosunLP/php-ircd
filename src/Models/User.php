@@ -24,6 +24,8 @@ class User {
     private $capabilities = []; // Neu: Aktivierte IRCv3 Capabilities
     private $silencedMasks = []; // Neu: Liste von ignorierten User-Masken (SILENCE)
     private $watchList = []; // Neu: Liste von beobachteten Nicknames (WATCH)
+    private $saslMechanism = null; // Speichert den SASL-Mechanismus während der Authentifizierung
+    private $capabilityNegotiationInProgress = false; // Ob CAP-Verhandlung gerade läuft
     
     /**
      * Constructor
@@ -431,6 +433,31 @@ class User {
     }
 
     /**
+     * Setzt oder entfernt den CAP-Verhandlungs-Status
+     * 
+     * @param bool $inProgress Ob CAP-Verhandlung im Gange ist
+     */
+    public function setCapabilityNegotiationInProgress(bool $inProgress): void {
+        $this->capabilityNegotiationInProgress = $inProgress;
+    }
+    
+    /**
+     * Prüft, ob die CAP-Verhandlung im Gange ist
+     * 
+     * @return bool
+     */
+    public function isCapabilityNegotiationInProgress(): bool {
+        return $this->capabilityNegotiationInProgress;
+    }
+    
+    /**
+     * Entfernt alle aktivierten Capabilities
+     */
+    public function clearCapabilities(): void {
+        $this->capabilities = [];
+    }
+
+    /**
      * Get the list of silenced masks
      * 
      * @return array The list of silenced masks
@@ -573,5 +600,23 @@ class User {
      */
     public function clearWatchList(): void {
         $this->watchList = [];
+    }
+    
+    /**
+     * Setter und Getter für SASL-Mechanismus
+     */
+    public function setSaslMechanism(string $mechanism): void {
+        $this->saslMechanism = $mechanism;
+    }
+    
+    public function getSaslMechanism(): ?string {
+        return $this->saslMechanism;
+    }
+    
+    /**
+     * Prüft, ob die Verbindung über SSL/TLS gesichert ist
+     */
+    public function isSecureConnection(): bool {
+        return $this->isStreamSocket;
     }
 }

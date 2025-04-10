@@ -3,6 +3,7 @@
 namespace PhpIrcd\Commands;
 
 use PhpIrcd\Models\User;
+use PhpIrcd\Utils\IRCv3Helper;
 
 class PrivmsgCommand extends CommandBase {
     /**
@@ -90,7 +91,12 @@ class PrivmsgCommand extends CommandBase {
         }
         
         // Send message to the target user
-        $targetUser->send(":{$nick}!{$user->getIdent()}@{$user->getCloak()} PRIVMSG {$target} :{$message}");
+        $formattedMessage = ":{$nick}!{$user->getIdent()}@{$user->getCloak()} PRIVMSG {$target} :{$message}";
+        
+        // Mit IRCv3-Features erweitern (z.B. server-time)
+        $enhancedMessage = IRCv3Helper::addServerTimeIfSupported($formattedMessage, $targetUser);
+        
+        $targetUser->send($enhancedMessage);
     }
     
     /**
@@ -129,7 +135,9 @@ class PrivmsgCommand extends CommandBase {
         $formattedMessage = ":{$nick}!{$user->getIdent()}@{$user->getCloak()} PRIVMSG {$channelName} :{$message}";
         foreach ($channel->getUsers() as $channelUser) {
             if ($channelUser !== $user) {
-                $channelUser->send($formattedMessage);
+                // Mit IRCv3-Features erweitern (z.B. server-time)
+                $enhancedMessage = IRCv3Helper::addServerTimeIfSupported($formattedMessage, $channelUser);
+                $channelUser->send($enhancedMessage);
             }
         }
     }
@@ -275,7 +283,9 @@ class PrivmsgCommand extends CommandBase {
         $formattedMessage = ":{$nick}!{$user->getIdent()}@{$user->getCloak()} PRIVMSG {$channelName} :\x01ACTION {$action}\x01";
         foreach ($channel->getUsers() as $channelUser) {
             if ($channelUser !== $user) {
-                $channelUser->send($formattedMessage);
+                // Mit IRCv3-Features erweitern (z.B. server-time)
+                $enhancedMessage = IRCv3Helper::addServerTimeIfSupported($formattedMessage, $channelUser);
+                $channelUser->send($enhancedMessage);
             }
         }
     }

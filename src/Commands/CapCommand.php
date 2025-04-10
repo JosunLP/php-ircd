@@ -7,12 +7,20 @@ use PhpIrcd\Models\User;
 class CapCommand extends CommandBase {
     // Liste der unterstützten Capabilities
     private $supportedCapabilities = [
-        'sasl',           // SASL-Authentifizierung
-        'multi-prefix',   // Mehrere Statuszeichen bei Benutzer in Kanälen
-        'away-notify',    // Benachrichtigungen über Away-Status-Änderungen
-        'extended-join',  // Erweitertes JOIN-Format mit Account und Realname
-        'account-notify', // Benachrichtigungen über Account-Änderungen
-        'tls'             // TLS-Unterstützung
+        'sasl',                  // SASL-Authentifizierung
+        'multi-prefix',          // Mehrere Statuszeichen bei Benutzer in Kanälen
+        'away-notify',           // Benachrichtigungen über Away-Status-Änderungen
+        'extended-join',         // Erweitertes JOIN-Format mit Account und Realname
+        'account-notify',        // Benachrichtigungen über Account-Änderungen
+        'tls',                   // TLS-Unterstützung
+        'server-time',           // Server-Zeitstempel für Nachrichten
+        'batch',                 // Nachrichten-Batching
+        'echo-message',          // Client erhält eigene Nachrichten zurück
+        'cap-notify',            // Benachrichtigungen über Capability-Änderungen
+        'invite-notify',         // Benachrichtigungen über Einladungen
+        'chghost',               // Hostname-Änderungen
+        'message-tags',          // Nachrichtenmarkierungen für Client-only Metadaten
+        'userhost-in-names'      // Hostname in NAMES-Listen
     ];
     
     /**
@@ -34,9 +42,50 @@ class CapCommand extends CommandBase {
         
         switch ($subcommand) {
             case 'LS':
-                // List supported capabilities
-                $caps = implode(' ', $this->supportedCapabilities);
-                $user->send(":{$config['name']} CAP {$nick} LS :{$caps}");
+                // Überprüfen auf IRCv3.2 LS mit Parameter für paginierte Antworten
+                $version = 302; // IRCv3.2
+                
+                // Prüfen, ob "CAP LS 302" (Version 3.2) verwendet wurde
+                if (isset($args[2]) && is_numeric($args[2])) {
+                    $version = (int)$args[2];
+                    
+                    // Client-Capability-Verhandlung markieren
+                    $user->setCapabilityNegotiationInProgress(true);
+                }
+                
+                // Capabilities mit Werten (für IRCv3.2+)
+                $capabilitiesWithValues = [
+                    'sasl' => 'PLAIN,EXTERNAL',
+                    'server-time' => '',
+                    'batch' => '',
+                    'echo-message' => '',
+                    'cap-notify' => '',
+                    'invite-notify' => '',
+                    'chghost' => '',
+                    'message-tags' => '',
+                    'multi-prefix' => '',
+                    'away-notify' => '',
+                    'extended-join' => '',
+                    'account-notify' => '',
+                    'tls' => '',
+                    'userhost-in-names' => ''
+                ];
+                
+                // Formatierte Capabilities ausgeben
+                $formattedCaps = [];
+                foreach ($capabilitiesWithValues as $cap => $value) {
+                    $formattedCaps[] = empty($value) ? $cap : "{$cap}={$value}";
+                }
+                
+                // Caps in Blöcken von maximal 400 Zeichen senden (um IRC Protokoll-Limits zu respektieren)
+                $capsBlocks = $this->splitCapabilityList($formattedCaps);
+                $isLast = false;
+                
+                foreach ($capsBlocks as $index => $block) {
+                    $isLast = ($index == count($capsBlocks) - 1);
+                    $marker = $isLast ? ' ' : ' * ';
+                    $user->send(":{$config['name']} CAP {$nick} LS{$marker}:{$block}");
+                }
                 break;
                 
             case 'LIST':
@@ -75,6 +124,8 @@ class CapCommand extends CommandBase {
                 
             case 'END':
                 // End of capability negotiation
+                $user->setCapabilityNegotiationInProgress(false);
+                
                 // If user has SASL capability but hasn't authenticated, 
                 // they might be stalled during registration
                 if ($user->hasCapability('sasl') && !$user->isSaslAuthenticated() && !$user->isSaslInProgress()) {
@@ -87,7 +138,15 @@ class CapCommand extends CommandBase {
                 
             case 'CLEAR':
                 // Clear all active capabilities
-                $user->send(":{$config['name']} CAP {$nick} ACK :*");
+                $oldCaps = $user->getCapabilities();
+                $user->clearCapabilities();
+                $capsString = implode(' ', $oldCaps);
+                
+                if (!empty($capsString)) {
+                    $user->send(":{$config['name']} CAP {$nick} ACK :-{$capsString}");
+                } else {
+                    $user->send(":{$config['name']} CAP {$nick} ACK :*");
+                }
                 break;
                 
             default:
@@ -95,5 +154,34 @@ class CapCommand extends CommandBase {
                 $user->send(":{$config['name']} CAP {$nick} NAK :{$subcommand}");
                 break;
         }
+    }
+    
+    /**
+     * Teilt eine Liste von Capabilities in Blöcke auf, die nicht länger als 400 Zeichen sind
+     * Dies ist notwendig, um IRC-Protokoll-Limits zu respektieren
+     * 
+     * @param array $capabilities Die zu teilende Capability-Liste
+     * @return array Ein Array von Capability-Listen-Strings
+     */
+    private function splitCapabilityList(array $capabilities): array {
+        $blocks = [];
+        $currentBlock = '';
+        
+        foreach ($capabilities as $cap) {
+            // Prüfen, ob das Hinzufügen dieser Capability den Block zu lang macht
+            if (strlen($currentBlock) + strlen($cap) + 1 > 400) { // +1 für das Leerzeichen
+                $blocks[] = trim($currentBlock);
+                $currentBlock = $cap;
+            } else {
+                $currentBlock .= (empty($currentBlock) ? '' : ' ') . $cap;
+            }
+        }
+        
+        // Den letzten Block hinzufügen, wenn er nicht leer ist
+        if (!empty($currentBlock)) {
+            $blocks[] = trim($currentBlock);
+        }
+        
+        return $blocks;
     }
 }

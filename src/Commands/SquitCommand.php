@@ -31,30 +31,54 @@ class SquitCommand extends CommandBase {
         
         $config = $this->server->getConfig();
         $nick = $user->getNick();
-        $server = $args[1];
+        $targetServer = $args[1];
         
         // Extract reason/comment
         $reason = isset($args[2]) ? $this->getMessagePart($args, 2) : "No reason given";
         
-        // In this implementation, we only have a single server
-        // So we'll only allow SQUITing our own server name for consistency
-        if (strtolower($server) !== strtolower($config['name'])) {
-            $user->send(":{$config['name']} 402 {$nick} {$server} :No such server");
+        // Prüfen, ob Server-zu-Server-Kommunikation aktiviert ist
+        if (empty($config['enable_server_links']) || $config['enable_server_links'] !== true) {
+            $user->send(":{$config['name']} NOTICE {$nick} :SQUIT command recognized, but server linking is disabled");
             return;
         }
         
-        // Since we're only running a single server, we'll just inform the user
-        // that the command is recognized but the action is limited
-        $user->send(":{$config['name']} NOTICE {$nick} :SQUIT command recognized, but this is a standalone server");
+        // Überprüfen, ob es sich um unseren eigenen Server handelt
+        if (strtolower($targetServer) === strtolower($config['name'])) {
+            $user->send(":{$config['name']} NOTICE {$nick} :Cannot SQUIT own server");
+            return;
+        }
         
-        // Log the SQUIT attempt
-        $this->server->getLogger()->info("SQUIT attempt by operator {$nick}: {$reason}");
+        // Suche nach dem angegebenen Server in den Server-Links
+        $serverLink = $this->server->getServerLink($targetServer);
         
-        // Notify other operators
+        if ($serverLink === null) {
+            $user->send(":{$config['name']} 402 {$nick} {$targetServer} :No such server");
+            return;
+        }
+        
+        // Server-Trennung ankündigen
+        $this->server->getLogger()->info("SQUIT executed by operator {$nick}: {$targetServer} ({$reason})");
+        
+        // Benachrichtigung an alle Operatoren senden
         foreach ($this->server->getUsers() as $serverUser) {
-            if ($serverUser->isOper() && $serverUser !== $user) {
-                $serverUser->send(":{$config['name']} NOTICE {$serverUser->getNick()} :*** Notice -- SQUIT attempted by {$nick}: {$reason}");
+            if ($serverUser->isOper()) {
+                $serverUser->send(":{$config['name']} NOTICE {$serverUser->getNick()} :*** Notice -- Received SQUIT {$targetServer} from {$nick} ({$reason})");
             }
         }
+        
+        // SQUIT-Nachricht an den zu trennenden Server senden, bevor die Verbindung getrennt wird
+        $squitMessage = ":{$nick}!{$user->getIdent()}@{$user->getHost()} SQUIT {$targetServer} :{$reason}";
+        $serverLink->send($squitMessage);
+        
+        // SQUIT-Nachricht an alle anderen verbundenen Server propagieren
+        $this->server->propagateToServers($squitMessage, $targetServer);
+        
+        // Verbindung zum Server trennen
+        $this->server->getServerLinkHandler()->disconnectServer($serverLink);
+        
+        // Server aus der Liste der verbundenen Server entfernen
+        $this->server->removeServerLink($serverLink);
+        
+        $user->send(":{$config['name']} NOTICE {$nick} :Server {$targetServer} has been disconnected");
     }
 }

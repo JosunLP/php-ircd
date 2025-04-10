@@ -18,6 +18,8 @@ class Server {
     private $startTime;
     private $isWebMode = false;
     private $whowasHistory = [];   // Speichert WHOWAS-Informationen über Benutzer, die den Server verlassen haben
+    private $serverLinkHandler;
+    private $serverLinks = [];
     
     /**
      * Constructor
@@ -38,6 +40,7 @@ class Server {
         
         $this->logger->info("Initializing server...");
         $this->connectionHandler = new ConnectionHandler($this);
+        $this->serverLinkHandler = new \PhpIrcd\Handlers\ServerLinkHandler($this);
         
         // Initialize persistent storage
         $this->storageDir = $config['storage_dir'] ?? sys_get_temp_dir() . '/php-ircd-storage';
@@ -62,7 +65,51 @@ class Server {
         }
         
         $this->createSocket();
+        
+        // Automatische Server-Verbindungen herstellen
+        $this->establishAutoConnections();
+        
         $this->mainLoop();
+    }
+    
+    /**
+     * Stellt automatische Verbindungen zu konfigurierten Servern her
+     */
+    private function establishAutoConnections(): void {
+        $config = $this->getConfig();
+        
+        // Prüfen, ob Server-zu-Server-Verbindungen aktiviert sind
+        if (empty($config['enable_server_links']) || $config['enable_server_links'] !== true) {
+            return;
+        }
+        
+        // Automatische Server-Verbindungen überprüfen
+        if (isset($config['auto_connect_servers']) && is_array($config['auto_connect_servers'])) {
+            foreach ($config['auto_connect_servers'] as $serverName => $serverConfig) {
+                if (!is_array($serverConfig) || 
+                    empty($serverConfig['host']) || 
+                    empty($serverConfig['port']) || 
+                    empty($serverConfig['password'])) {
+                    $this->logger->warning("Ungültige Konfiguration für automatische Server-Verbindung: {$serverName}");
+                    continue;
+                }
+                
+                $host = $serverConfig['host'];
+                $port = (int)$serverConfig['port'];
+                $password = $serverConfig['password'];
+                $useSSL = !empty($serverConfig['ssl']) && $serverConfig['ssl'] === true;
+                
+                $this->logger->info("Stelle automatische Verbindung zum Server {$serverName} ({$host}:{$port}) her...");
+                
+                $success = $this->serverLinkHandler->connectToServer($host, $port, $password, $useSSL);
+                
+                if ($success) {
+                    $this->logger->info("Automatische Verbindung zum Server {$serverName} erfolgreich hergestellt");
+                } else {
+                    $this->logger->error("Automatische Verbindung zum Server {$serverName} fehlgeschlagen");
+                }
+            }
+        }
     }
     
     /**
@@ -163,6 +210,12 @@ class Server {
             
             // Handle existing connections
             $this->connectionHandler->handleExistingConnections();
+            
+            // Accept new server connections
+            $this->serverLinkHandler->acceptServerConnections($this->socket);
+            
+            // Handle existing server connections
+            $this->serverLinkHandler->handleExistingServerLinks();
             
             // Save server state periodically
             static $lastSaveTime = 0;
@@ -821,6 +874,78 @@ class Server {
                 // Offline-Benachrichtigung senden
                 $watcher->send(":{$config['name']} 605 {$watcher->getNick()} {$nickname} :is offline");
             }
+        }
+    }
+    
+    /**
+     * Add a server link
+     * 
+     * @param \PhpIrcd\Models\ServerLink $serverLink The server link to add
+     */
+    public function addServerLink(\PhpIrcd\Models\ServerLink $serverLink): void {
+        $this->serverLinks[$serverLink->getName()] = $serverLink;
+        $this->logger->info("Server link established with {$serverLink->getName()} ({$serverLink->getHost()})");
+    }
+    
+    /**
+     * Remove a server link
+     * 
+     * @param \PhpIrcd\Models\ServerLink $serverLink The server link to remove
+     */
+    public function removeServerLink(\PhpIrcd\Models\ServerLink $serverLink): void {
+        if (isset($this->serverLinks[$serverLink->getName()])) {
+            unset($this->serverLinks[$serverLink->getName()]);
+            $this->logger->info("Server link closed with {$serverLink->getName()} ({$serverLink->getHost()})");
+        }
+    }
+    
+    /**
+     * Get a server link by server name
+     * 
+     * @param string $serverName The name of the server
+     * @return \PhpIrcd\Models\ServerLink|null The server link or null if not found
+     */
+    public function getServerLink(string $serverName): ?\PhpIrcd\Models\ServerLink {
+        return $this->serverLinks[$serverName] ?? null;
+    }
+    
+    /**
+     * Get all server links
+     * 
+     * @return array All server links
+     */
+    public function getServerLinks(): array {
+        return $this->serverLinks;
+    }
+    
+    /**
+     * Get the ServerLinkHandler instance
+     * 
+     * @return \PhpIrcd\Handlers\ServerLinkHandler The ServerLinkHandler instance
+     */
+    public function getServerLinkHandler(): \PhpIrcd\Handlers\ServerLinkHandler {
+        return $this->serverLinkHandler;
+    }
+    
+    /**
+     * Propagate a message to all linked servers (except the originating server)
+     * 
+     * @param string $message The message to propagate
+     * @param string|null $exceptServerName The name of the server to exclude (usually the originating server)
+     */
+    public function propagateToServers(string $message, ?string $exceptServerName = null): void {
+        if (empty($this->serverLinks)) {
+            return;
+        }
+        
+        foreach ($this->serverLinks as $serverName => $serverLink) {
+            // Nicht an den Ausnahme-Server senden
+            if ($exceptServerName !== null && $serverName === $exceptServerName) {
+                continue;
+            }
+            
+            // Nachricht an den verknüpften Server senden
+            $serverLink->send($message);
         }
     }
 }

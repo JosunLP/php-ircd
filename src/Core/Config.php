@@ -49,6 +49,30 @@ class Config {
             'Ursprünglich erstellt von Daniel Danopia (2008)',
             'Mit Web-Schnittstelle für einfache Bedienung'
         ],
+        
+        // Server-zu-Server-Kommunikation (neu)
+        'enable_server_links' => false,           // Server-zu-Server-Verbindungen aktivieren
+        'server_password' => 'server_pass123',    // Passwort für Server-Verbindungen
+        'hub_mode' => false,                      // Server als Hub betreiben (vermittelt zwischen Servern)
+        'auto_connect_servers' => [               // Automatisch zu verbindende Server
+            // Format: 'server_name' => ['host' => 'hostname', 'port' => port, 'password' => 'pass', 'ssl' => true/false]
+        ],
+        
+        // IRCv3-Funktionen (neu)
+        'cap_enabled' => true,                    // IRCv3 Capability Negotiation aktivieren
+        'sasl_enabled' => true,                   // SASL-Authentifizierung aktivieren
+        'sasl_mechanisms' => ['PLAIN', 'EXTERNAL'], // Unterstützte SASL-Mechanismen
+        'sasl_users' => [                          // SASL-Benutzerkonten
+            // Format: 'id' => ['username' => 'user', 'password' => 'pass']
+        ],
+        
+        // Erweiterte Features (neu)
+        'cloak_hostnames' => true,                // Hostnamen verschleiern
+        'max_watch_entries' => 128,               // Maximale Anzahl von WATCH-Einträgen
+        'max_silence_entries' => 15,              // Maximale Anzahl von SILENCE-Einträgen
+        'default_user_modes' => '',               // Standardmäßige Benutzer-Modi
+        'default_channel_modes' => 'nt',          // Standardmäßige Kanal-Modi
+        'max_channels_per_user' => 10,            // Maximale Anzahl von Kanälen pro Benutzer
     ];
     
     /**
