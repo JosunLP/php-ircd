@@ -602,4 +602,72 @@ class Server {
         
         $this->logger->info("Server configuration updated");
     }
+    
+    /**
+     * Registriert einen Kanal für permanente Speicherung
+     * 
+     * @param string $channelName Der Name des Kanals
+     * @param User $user Der Benutzer, der den Kanal registriert
+     * @return bool Erfolg der Registrierung
+     */
+    public function registerPermanentChannel(string $channelName, User $user): bool {
+        // Überprüfe, ob der Kanal existiert
+        $channel = $this->getChannel($channelName);
+        if ($channel === null) {
+            return false;
+        }
+        
+        // Überprüfe, ob der Benutzer Operator im Kanal ist
+        if (!$user->isOper() && !$channel->isOperator($user)) {
+            return false;
+        }
+        
+        // Markiere den Kanal als permanent
+        $channel->setPermanent(true);
+        
+        // Speichere den Kanalzustand
+        $this->saveChannelState($channel);
+        
+        // Logge die Registrierung
+        $this->logger->info("Channel {$channelName} registered as permanent by {$user->getNick()}");
+        
+        return true;
+    }
+    
+    /**
+     * Deregistriert einen permanenten Kanal
+     * 
+     * @param string $channelName Der Name des Kanals
+     * @param User $user Der Benutzer, der den Kanal deregistriert
+     * @return bool Erfolg der Deregistrierung
+     */
+    public function unregisterPermanentChannel(string $channelName, User $user): bool {
+        // Überprüfe, ob der Kanal existiert
+        $channel = $this->getChannel($channelName);
+        if ($channel === null) {
+            return false;
+        }
+        
+        // Überprüfe, ob der Benutzer Operator im Kanal ist
+        if (!$user->isOper() && !$channel->isOperator($user)) {
+            return false;
+        }
+        
+        // Markiere den Kanal als nicht permanent
+        $channel->setPermanent(false);
+        
+        // Lösche den Kanalzustand, wenn der Kanal leer ist
+        if (count($channel->getUsers()) === 0) {
+            $this->removeChannel($channelName);
+            $this->deleteChannelState($channelName);
+        } else {
+            // Sonst aktualisiere den Zustand
+            $this->saveChannelState($channel);
+        }
+        
+        // Logge die Deregistrierung
+        $this->logger->info("Channel {$channelName} unregistered as permanent by {$user->getNick()}");
+        
+        return true;
+    }
 }

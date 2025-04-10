@@ -29,86 +29,82 @@ class Config {
         'opers' => [
             'admin' => 'test123'
         ],
+        'operator_passwords' => [                // Passwörter für die Authentifizierung (Neu)
+            'admin' => 'test123'
+        ],
         'storage_dir' => 'storage',              // Verzeichnis für Datenspeicherung
         'log_to_console' => true,                // Logs in Konsole anzeigen
     ];
-
-    // /OPER admin test123
     
     /**
      * Constructor
      * 
-     * @param string|array $config Optional: Path to configuration file or configuration array
+     * @param string|null $configPath Path to configuration file
      */
-    public function __construct($config = null) {
-        // Set default configuration
+    public function __construct(?string $configPath = null) {
+        // Initialize with default configuration
         $this->config = $this->defaultConfig;
         
-        // Load configuration if provided
-        if (is_string($config) && file_exists($config)) {
-            $this->loadFromFile($config);
-        } elseif (is_array($config)) {
-            $this->loadFromArray($config);
+        // Load configuration from file if provided
+        if ($configPath !== null) {
+            $this->loadFromFile($configPath);
         }
     }
     
     /**
-     * Loads configuration from a file
+     * Load configuration from a PHP file
      * 
-     * @param string $filePath Path to the configuration file
+     * @param string $configPath Path to configuration file
      * @return bool Success of loading
      */
-    public function loadFromFile(string $filePath): bool {
-        if (!file_exists($filePath)) {
+    public function loadFromFile(string $configPath): bool {
+        // Check if file exists
+        if (!file_exists($configPath)) {
             return false;
         }
         
-        // Include PHP file with $config array
+        // Include configuration file
         $config = [];
-        include $filePath;
+        include $configPath;
         
-        if (!is_array($config)) {
-            return false;
+        // Merge with default configuration
+        if (isset($config) && is_array($config)) {
+            $this->config = array_merge($this->defaultConfig, $config);
+            return true;
         }
         
-        $this->loadFromArray($config);
-        return true;
+        return false;
     }
     
     /**
-     * Loads configuration from an array
+     * Get configuration value
      * 
-     * @param array $config The configuration array
+     * @param string $key Configuration key
+     * @param mixed $default Default value if key doesn't exist
+     * @return mixed Configuration value
      */
-    public function loadFromArray(array $config): void {
-        $this->config = array_merge($this->config, $config);
+    public function get(string $key, $default = null) {
+        if (isset($this->config[$key])) {
+            return $this->config[$key];
+        }
+        
+        return $default;
     }
     
     /**
-     * Sets a configuration value
+     * Set configuration value
      * 
-     * @param string $key The key
-     * @param mixed $value The value
+     * @param string $key Configuration key
+     * @param mixed $value Configuration value
      */
     public function set(string $key, $value): void {
         $this->config[$key] = $value;
     }
     
     /**
-     * Returns a configuration value
+     * Check if configuration key exists
      * 
-     * @param string $key The key
-     * @param mixed $default Optional: Default value if key does not exist
-     * @return mixed The configuration value or default value
-     */
-    public function get(string $key, $default = null) {
-        return $this->config[$key] ?? $default;
-    }
-    
-    /**
-     * Checks if a configuration key exists
-     * 
-     * @param string $key The key
+     * @param string $key Configuration key
      * @return bool Whether the key exists
      */
     public function has(string $key): bool {
@@ -153,12 +149,5 @@ class Config {
      */
     public function __set(string $name, $value): void {
         $this->set($name, $value);
-    }
-    
-    /**
-     * Magic isset method for easy access to configuration values
-     */
-    public function __isset(string $name): bool {
-        return $this->has($name);
     }
 }

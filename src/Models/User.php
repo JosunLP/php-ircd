@@ -18,6 +18,7 @@ class User {
     private $modes = [];
     private $away = null;
     private $isStreamSocket = false; // Flag für Stream-Socket (SSL)
+    private $password = null; // Neu: Passwort für spätere Auth speichern
     
     /**
      * Constructor
@@ -316,6 +317,24 @@ class User {
      */
     public function getAwayMessage(): ?string {
         return $this->away;
+    }
+
+    /**
+     * Set the user's password
+     * 
+     * @param string $password The password
+     */
+    public function setPassword(string $password): void {
+        $this->password = $password;
+    }
+    
+    /**
+     * Get the user's password
+     * 
+     * @return string|null The password or null if not set
+     */
+    public function getPassword(): ?string {
+        return $this->password;
     }
 
     /**

@@ -225,6 +225,8 @@ class WebInterface {
                             <p><code>/topic #channel [new topic]</code> - View or set channel topic</code></p>
                             <p><code>/away [message]</code> - Set or remove away status</p>
                             <p><code>/mode #channel +/-modes</code> - Set or remove channel modes</p>
+                            <p><code>/register #channel</code> - Register a channel</p>
+                            <p><code>/unregister #channel</code> - Unregister a channel</p>
                             <p><code>/quit [reason]</code> - Disconnect</p>
                         </div>
                         <form id="disconnectForm" action="?action=disconnect" method="post">
@@ -459,6 +461,18 @@ class WebInterface {
                                 'text' => "-> {$target}: {$msgText}",
                                 'type' => 'user'
                             ];
+                        }
+                        break;
+                    case 'REGISTER':
+                        if (isset($parts[1])) {
+                            $channel = $parts[1];
+                            fwrite($socket, "REGISTER {$channel}\r\n");
+                        }
+                        break;
+                    case 'UNREGISTER':
+                        if (isset($parts[1])) {
+                            $channel = $parts[1];
+                            fwrite($socket, "UNREGISTER {$channel}\r\n");
                         }
                         break;
                     case 'QUIT':

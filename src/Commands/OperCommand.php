@@ -29,20 +29,28 @@ class OperCommand extends CommandBase {
         $config = $this->server->getConfig();
         $nick = $user->getNick();
         
-        // Check if the username and password are correct
+        // Überprüfe, ob die Operator-Einstellungen in der Konfiguration vorhanden sind
+        if (!isset($config['opers']) || !is_array($config['opers'])) {
+            $user->send(":{$config['name']} 491 {$nick} :No O-lines available for your host");
+            return;
+        }
+        
+        // Überprüfe, ob der Benutzername und das Passwort korrekt sind
         if (!isset($config['opers'][$username]) || $config['opers'][$username] !== $password) {
+            $this->server->getLogger()->warning("Failed OPER attempt from {$user->getIp()} ({$nick}): Invalid credentials");
             $user->send(":{$config['name']} 464 {$nick} :Password incorrect");
             return;
         }
         
-        // Set oper status
+        // Setze den Operator-Status
         $user->setOper(true);
         $user->setMode('o', true);
         
-        // Send success notification
+        // Sende eine Erfolgsmeldung
         $user->send(":{$config['name']} 381 {$nick} :You are now an IRC operator");
+        $this->server->getLogger()->info("User {$nick} ({$user->getIp()}) has become an IRC operator");
         
-        // Notify all users with +s mode
+        // Benachrichtige alle Benutzer mit +s Modus
         foreach ($this->server->getUsers() as $serverUser) {
             if ($serverUser->hasMode('s')) {
                 $serverUser->send(":{$config['name']} NOTICE {$serverUser->getNick()} :*** Notice -- {$nick} is now an IRC operator");

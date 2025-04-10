@@ -20,6 +20,12 @@ class MotdCommand extends CommandBase {
         $config = $this->server->getConfig();
         $nick = $user->getNick();
         
+        // Überprüfen, ob MOTD in der Konfiguration vorhanden ist
+        if (empty($config['motd'])) {
+            $user->send(":{$config['name']} 422 {$nick} :MOTD File is missing");
+            return;
+        }
+        
         // Send MOTD header
         $user->send(":{$config['name']} 375 {$nick} :- {$config['name']} Message of the Day -");
         

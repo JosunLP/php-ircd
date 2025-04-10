@@ -11,6 +11,28 @@ use PhpIrcd\Models\User;
  * Processes password authentication before registration
  */
 class PassCommand extends CommandBase {
+    private $validPasswords = [];
+    
+    /**
+     * Constructor
+     * 
+     * @param Server $server The server instance
+     */
+    public function __construct(Server $server) {
+        parent::__construct($server);
+        
+        // Passwörter aus der Konfiguration laden
+        $config = $server->getConfig();
+        if (isset($config['operator_passwords']) && is_array($config['operator_passwords'])) {
+            $this->validPasswords = $config['operator_passwords'];
+        }
+        
+        // Standardpasswort für Tests
+        if (empty($this->validPasswords)) {
+            $this->validPasswords['admin'] = 'test123';
+        }
+    }
+    
     /**
      * Executes the PASS command
      * 
@@ -19,16 +41,21 @@ class PassCommand extends CommandBase {
      */
     public function execute(User $user, array $args): void {
         // Befehl ignorieren, wenn keine Argumente vorhanden sind
-        if (count($args) < 1) {
+        if (count($args) < 2) {
             $this->sendError($user, 'PASS', 'Not enough parameters', 461);
             return;
         }
 
-        // Passwort verarbeiten (ignorieren, da wir es derzeit nicht verwenden)
-        // Hier wird das Passwort nur akzeptiert, aber nicht geprüft
-        // In einer Produktionsumgebung würden Sie hier eine Passwortverfizierung implementieren
+        // Passwort extrahieren (ohne Doppelpunkte am Anfang entfernen)
+        $password = $args[1];
+        if (substr($password, 0, 1) === ':') {
+            $password = substr($password, 1);
+        }
         
-        // Setzt keine Flags, da der PASS-Befehl nur entgegengenommen wird
-        $user->updateActivity();
+        // Passwort speichern für spätere Verwendung (z.B. bei OPER Befehl)
+        $user->setPassword($password);
+        
+        // Passwort-Bereitstellung loggen
+        $this->server->getLogger()->debug("User {$user->getIp()} provided password");
     }
 }

@@ -26,6 +26,9 @@ class Channel {
     private $key = null;
     private $limit = 0;
     
+    // Channel persistence
+    private $permanent = false;   // Neu: Flag für permanente Kanäle
+    
     /**
      * Constructor
      * 
@@ -546,5 +549,23 @@ class Channel {
      */
     public function getCreationTime(): int {
         return $this->created;
+    }
+    
+    /**
+     * Setzt den Permanenz-Status des Kanals
+     * 
+     * @param bool $permanent True, wenn der Kanal permanent sein soll
+     */
+    public function setPermanent(bool $permanent): void {
+        $this->permanent = $permanent;
+    }
+    
+    /**
+     * Prüft, ob der Kanal permanent ist
+     * 
+     * @return bool Ob der Kanal permanent ist
+     */
+    public function isPermanent(): bool {
+        return $this->permanent;
     }
 }

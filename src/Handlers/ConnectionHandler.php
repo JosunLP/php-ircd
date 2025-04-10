@@ -53,6 +53,8 @@ class ConnectionHandler {
         $this->registerCommandHandler('TIME', new \PhpIrcd\Commands\TimeCommand($this->server));
         $this->registerCommandHandler('STATS', new \PhpIrcd\Commands\StatsCommand($this->server));
         $this->registerCommandHandler('REHASH', new \PhpIrcd\Commands\RehashCommand($this->server));
+        $this->registerCommandHandler('REGISTER', new \PhpIrcd\Commands\RegisterCommand($this->server));
+        $this->registerCommandHandler('UNREGISTER', new \PhpIrcd\Commands\UnregisterCommand($this->server));
     }
     
     /**
