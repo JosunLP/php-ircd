@@ -15,7 +15,7 @@ class Config {
         'port' => 6667,                          // Default IRC port
         'version' => 1.0,                        // Server version
         'bind_ip' => '127.0.0.1',                // IP address for binding
-        'line_ending' => "\n",                   // Line ending for socket communication
+        'line_ending' => "\r\n",                 // Line ending for socket communication
         'line_ending_conf' => "\n",              // Line ending for MOTD, etc.
         'ping_interval' => 90,                   // Ping interval in seconds
         'ping_timeout' => 240,                   // Ping timeout in seconds
