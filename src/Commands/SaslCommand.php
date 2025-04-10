@@ -74,8 +74,22 @@ class SaslCommand extends CommandBase {
                 break;
                 
             case 'EXTERNAL':
-                // For cert-based auth, we'd verify client certs here
+                // Für zertifikatsbasierte Authentifizierung
+                // Da dies nur eine Basisimplementierung ist, lehnen wir dies ab
                 $user->send(":{$config['name']} 904 {$nick} :SASL authentication failed: EXTERNAL mechanism not supported");
+                $user->setSaslInProgress(false);
+                break;
+                
+            case 'SCRAM-SHA-1':
+                // SCRAM-SHA-1 ist ein sichererer Mechanismus als PLAIN
+                // Da diese Implementierung einfach gehalten wird, lehnen wir dies ab
+                $user->send(":{$config['name']} 904 {$nick} :SASL authentication failed: SCRAM-SHA-1 mechanism not supported");
+                $user->setSaslInProgress(false);
+                break;
+                
+            case 'SCRAM-SHA-256':
+                // Für erhöhte Sicherheit, ebenfalls abgelehnt für diese einfache Implementierung
+                $user->send(":{$config['name']} 904 {$nick} :SASL authentication failed: SCRAM-SHA-256 mechanism not supported");
                 $user->setSaslInProgress(false);
                 break;
                 

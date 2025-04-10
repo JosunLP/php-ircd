@@ -26,6 +26,7 @@ class Config {
         'log_level' => 0,                        // 0=Debug, 1=Info, 2=Warn, 3=Error
         'log_file' => 'ircd.log',                // Path to log file
         'motd' => "Willkommen bei deinem lokalen IRC-Testserver!\n\nDieser Server läuft auf localhost und ist zum Testen gedacht.\n\nDu kannst IRC-Operator werden mit folgendem Befehl:\n/OPER admin test123\n\nViel Spaß beim Testen!",
+        'description' => 'PHP-IRCd Testserver',  // Server description for LINKS command
         'opers' => [
             'admin' => 'test123'
         ],

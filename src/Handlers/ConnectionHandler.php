@@ -64,6 +64,11 @@ class ConnectionHandler {
         $this->registerCommandHandler('WALLOPS', new \PhpIrcd\Commands\WallopsCommand($this->server));
         $this->registerCommandHandler('USERHOST', new \PhpIrcd\Commands\UserhostCommand($this->server));
         $this->registerCommandHandler('ISON', new \PhpIrcd\Commands\IsonCommand($this->server));
+        $this->registerCommandHandler('WHOWAS', new \PhpIrcd\Commands\WhowasCommand($this->server));
+        $this->registerCommandHandler('LINKS', new \PhpIrcd\Commands\LinksCommand($this->server));
+        $this->registerCommandHandler('LUSERS', new \PhpIrcd\Commands\LusersCommand($this->server));
+        $this->registerCommandHandler('SILENCE', new \PhpIrcd\Commands\SilenceCommand($this->server));
+        $this->registerCommandHandler('KNOCK', new \PhpIrcd\Commands\KnockCommand($this->server));
     }
     
     /**
@@ -234,6 +239,11 @@ class ConnectionHandler {
      * @param string $reason The reason for disconnection
      */
     public function disconnectUser(User $user, string $reason): void {
+        // Benutzer zur WHOWAS-Historie hinzufügen, wenn er registriert war
+        if ($user->isRegistered()) {
+            $this->server->addToWhowasHistory($user);
+        }
+        
         // Notify all channels the user is in
         $channels = $this->server->getChannels();
         foreach ($channels as $channel) {
@@ -252,8 +262,8 @@ class ConnectionHandler {
                 // Remove user from the channel
                 $channel->removeUser($user);
                 
-                // If the channel is empty, remove it
-                if (count($channel->getUsers()) === 0) {
+                // If the channel is empty and not permanent, remove it
+                if (count($channel->getUsers()) === 0 && !$channel->isPermanent()) {
                     $this->server->removeChannel($channel->getName());
                 }
             }

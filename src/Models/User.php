@@ -22,6 +22,7 @@ class User {
     private $saslInProgress = false; // Neu: SASL-Authentifizierung läuft
     private $saslAuthenticated = false; // Neu: SASL-Authentifizierung erfolgreich
     private $capabilities = []; // Neu: Aktivierte IRCv3 Capabilities
+    private $silencedMasks = []; // Neu: Liste von ignorierten User-Masken (SILENCE)
     
     /**
      * Constructor
@@ -426,5 +427,93 @@ class User {
      */
     public function hasCapability(string $capability): bool {
         return in_array($capability, $this->capabilities);
+    }
+
+    /**
+     * Get the list of silenced masks
+     * 
+     * @return array The list of silenced masks
+     */
+    public function getSilencedMasks(): array {
+        return $this->silencedMasks;
+    }
+    
+    /**
+     * Add a mask to the silence list
+     * 
+     * @param string $mask The mask to add
+     * @return bool Success (false if already at maximum entries)
+     */
+    public function addSilencedMask(string $mask): bool {
+        // Prüfen, ob die Maske bereits existiert
+        if (in_array($mask, $this->silencedMasks)) {
+            return true; // Maske bereits vorhanden
+        }
+        
+        // Maximale Anzahl von SILENCE-Einträgen (15 nach RFC)
+        if (count($this->silencedMasks) >= 15) {
+            return false;
+        }
+        
+        // Maske hinzufügen
+        $this->silencedMasks[] = $mask;
+        return true;
+    }
+    
+    /**
+     * Remove a mask from the silence list
+     * 
+     * @param string $mask The mask to remove
+     * @return bool Whether the mask was removed
+     */
+    public function removeSilencedMask(string $mask): bool {
+        $key = array_search($mask, $this->silencedMasks);
+        if ($key !== false) {
+            unset($this->silencedMasks[$key]);
+            $this->silencedMasks = array_values($this->silencedMasks);
+            return true;
+        }
+        return false;
+    }
+    
+    /**
+     * Check if a user matches any of the silenced masks
+     * 
+     * @param User $sender The user to check
+     * @return bool Whether the user is silenced
+     */
+    public function isSilenced(User $sender): bool {
+        if (empty($this->silencedMasks)) {
+            return false;
+        }
+        
+        $fullMask = $sender->getNick() . "!" . $sender->getIdent() . "@" . $sender->getHost();
+        
+        foreach ($this->silencedMasks as $mask) {
+            // Einfacher Mask-Vergleich mit Wildcards (* und ?)
+            if ($this->matchesMask($fullMask, $mask)) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Helper to match a string against an IRC mask with wildcards
+     * 
+     * @param string $string The string to check
+     * @param string $mask The mask with wildcards
+     * @return bool Whether the string matches the mask
+     */
+    private function matchesMask(string $string, string $mask): bool {
+        // Escape all regex special chars except * and ?
+        $mask = preg_quote($mask, '/');
+        
+        // Convert IRC wildcards to regex wildcards
+        $mask = str_replace(['\\*', '\\?'], ['.*', '.'], $mask);
+        
+        // Check if the string matches the mask
+        return (bool) preg_match('/^' . $mask . '$/i', $string);
     }
 }

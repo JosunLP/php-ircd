@@ -63,6 +63,40 @@ class StatsCommand extends CommandBase {
                 }
                 break;
                 
+            case 'l': // Connection info
+                // Verbindungsstatistiken (aktuelle Verbindungen)
+                foreach ($this->server->getUsers() as $connectedUser) {
+                    $idleTime = time() - $connectedUser->getLastActivity();
+                    $connTime = time() - $connectedUser->getConnectTime();
+                    $user->send(":{$config['name']} 211 {$nick} {$connectedUser->getIp()} * {$connectedUser->getNick()} {$idleTime} {$connTime} 0");
+                }
+                break;
+                
+            case 'c': // Connect info
+                if ($isOper) {
+                    // Da dies ein Einzelserver ist, zeigen wir nur den aktuellen Server an
+                    $user->send(":{$config['name']} 213 {$nick} C * * {$config['name']} 0 0");
+                }
+                break;
+                
+            case 'h': // Hostmask info
+                if ($isOper) {
+                    // Einfache Hostmask-Statistiken
+                    $hostCounts = [];
+                    foreach ($this->server->getUsers() as $connectedUser) {
+                        $host = $connectedUser->getHost();
+                        if (!isset($hostCounts[$host])) {
+                            $hostCounts[$host] = 0;
+                        }
+                        $hostCounts[$host]++;
+                    }
+                    
+                    foreach ($hostCounts as $host => $count) {
+                        $user->send(":{$config['name']} 250 {$nick} H {$host} * {$count}");
+                    }
+                }
+                break;
+                
             default: // General server stats
                 // Basic server information
                 $user->send(":{$config['name']} 250 {$nick} :Highest connection count: " . count($this->server->getUsers()));

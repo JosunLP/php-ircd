@@ -17,6 +17,7 @@ class Server {
     private $storageDir;
     private $startTime;
     private $isWebMode = false;
+    private $whowasHistory = [];   // Speichert WHOWAS-Informationen über Benutzer, die den Server verlassen haben
     
     /**
      * Constructor
@@ -669,5 +670,98 @@ class Server {
         $this->logger->info("Channel {$channelName} unregistered as permanent by {$user->getNick()}");
         
         return true;
+    }
+    
+    /**
+     * Speichert einen Benutzer in der WHOWAS-Historie
+     * 
+     * @param User $user Der zu speichernde Benutzer
+     */
+    public function addToWhowasHistory(User $user): void {
+        // Sicherstellen, dass der Benutzer einen Nicknamen hat
+        if ($user->getNick() === null) {
+            return;
+        }
+        
+        // Benutzerinformationen speichern
+        $nick = $user->getNick();
+        $entry = [
+            'nick' => $nick,
+            'ident' => $user->getIdent(),
+            'host' => $user->getHost(),
+            'realname' => $user->getRealname(),
+            'time' => time()
+        ];
+        
+        // WHOWAS-Einträge für diesen Nicknamen speichern (maximal 10 pro Nick)
+        if (!isset($this->whowasHistory[$nick])) {
+            $this->whowasHistory[$nick] = [];
+        }
+        
+        // Eintrag am Anfang des Arrays einfügen (neuester zuerst)
+        array_unshift($this->whowasHistory[$nick], $entry);
+        
+        // Auf 10 Einträge pro Nickname begrenzen
+        if (count($this->whowasHistory[$nick]) > 10) {
+            $this->whowasHistory[$nick] = array_slice($this->whowasHistory[$nick], 0, 10);
+        }
+        
+        // Gesamtzahl der WHOWAS-Einträge auf 100 begrenzen
+        $totalEntries = 0;
+        foreach ($this->whowasHistory as $nickEntries) {
+            $totalEntries += count($nickEntries);
+        }
+        
+        if ($totalEntries > 100) {
+            // Entferne die ältesten Einträge
+            while ($totalEntries > 100 && !empty($this->whowasHistory)) {
+                // Suche nach dem ältesten Eintrag
+                $oldestNick = null;
+                $oldestTime = PHP_INT_MAX;
+                
+                foreach ($this->whowasHistory as $n => $entries) {
+                    if (!empty($entries) && end($entries)['time'] < $oldestTime) {
+                        $oldestNick = $n;
+                        $oldestTime = end($entries)['time'];
+                    }
+                }
+                
+                if ($oldestNick !== null) {
+                    // Entferne den ältesten Eintrag für diesen Nicknamen
+                    array_pop($this->whowasHistory[$oldestNick]);
+                    $totalEntries--;
+                    
+                    // Entferne den Nicknamen komplett, wenn keine Einträge mehr vorhanden sind
+                    if (empty($this->whowasHistory[$oldestNick])) {
+                        unset($this->whowasHistory[$oldestNick]);
+                    }
+                } else {
+                    break; // Etwas ist schiefgelaufen, breche die Schleife ab
+                }
+            }
+        }
+    }
+    
+    /**
+     * Liefert WHOWAS-Einträge für einen Nicknamen
+     * 
+     * @param string $nick Der gesuchte Nickname
+     * @param int $count Maximale Anzahl zurückzugebender Einträge
+     * @return array Die WHOWAS-Einträge (leer, wenn keine vorhanden)
+     */
+    public function getWhowasEntries(string $nick, int $count = 10): array {
+        $entries = [];
+        
+        // Suche nach exakten Treffern (ohne Berücksichtigung der Groß-/Kleinschreibung)
+        $lowerNick = strtolower($nick);
+        foreach ($this->whowasHistory as $historyNick => $historyEntries) {
+            if (strtolower($historyNick) === $lowerNick) {
+                // Begrenze die Anzahl der Einträge
+                $entries = array_slice($historyEntries, 0, $count);
+                break;
+            }
+        }
+        
+        return $entries;
     }
 }

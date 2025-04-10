@@ -84,6 +84,11 @@ class PrivmsgCommand extends CommandBase {
             $user->send(":{$config['name']} 301 {$nick} {$target} :{$awayMessage}");
         }
         
+        // If the target user has silenced the sender, discard the message
+        if ($targetUser->isSilenced($user)) {
+            return;
+        }
+        
         // Send message to the target user
         $targetUser->send(":{$nick}!{$user->getIdent()}@{$user->getCloak()} PRIVMSG {$target} :{$message}");
     }
@@ -198,6 +203,31 @@ class PrivmsgCommand extends CommandBase {
                 case 'ACTION':
                     // Forward the action to the user
                     $targetUser->send(":{$nick}!{$user->getIdent()}@{$user->getCloak()} PRIVMSG {$target} :{$message}");
+                    break;
+                
+                case 'CLIENTINFO':
+                    // Information about supported CTCP commands
+                    $clientinfoReply = "\x01CLIENTINFO ACTION CLIENTINFO FINGER PING SOURCE TIME USERINFO VERSION\x01";
+                    $targetUser->send(":{$config['name']} NOTICE {$nick} :{$clientinfoReply}");
+                    break;
+                
+                case 'FINGER':
+                    // User info (traditionally includes idle time)
+                    $idleTime = time() - $user->getLastActivity();
+                    $fingerReply = "\x01FINGER {$user->getRealname()} (idle {$idleTime} seconds)\x01";
+                    $targetUser->send(":{$config['name']} NOTICE {$nick} :{$fingerReply}");
+                    break;
+                
+                case 'SOURCE':
+                    // Information about source code of the client
+                    $sourceReply = "\x01SOURCE https://github.com/danopia/php-ircd\x01";
+                    $targetUser->send(":{$config['name']} NOTICE {$nick} :{$sourceReply}");
+                    break;
+                
+                case 'USERINFO':
+                    // User information
+                    $userinfoReply = "\x01USERINFO {$user->getRealname()}\x01";
+                    $targetUser->send(":{$config['name']} NOTICE {$nick} :{$userinfoReply}");
                     break;
                 
                 default:

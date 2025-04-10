@@ -57,20 +57,32 @@ class UserCommand extends CommandBase {
         // Numeric replies 001-004
         $user->send(":{$config['name']} 001 {$nick} :Welcome to the {$config['net']} IRC Network {$nick}!{$user->getIdent()}@{$user->getHost()}");
         $user->send(":{$config['name']} 002 {$nick} :Your host is {$config['name']}, running version Danoserv {$config['version']}");
-        $user->send(":{$config['name']} 003 {$nick} :This server was created " . date('D M d H:i:s Y'));
+        $user->send(":{$config['name']} 003 {$nick} :This server was created " . date('D M d H:i:s Y', $this->server->getStartTime()));
         $user->send(":{$config['name']} 004 {$nick} {$config['name']} Danoserv {$config['version']} iowghraAsORTVSxNCWqBzvdHtGp lvhopsmntikrRcaqOALQbSeIKVfMCuzNTGj");
         
-        // ISUPPORT (005) messages
-        $user->send(":{$config['name']} 005 {$nick} CMDS=KNOCK,MAP,DCCALLOW,USERIP NAMESX SAFELIST HCN MAXCHANNELS=10 CHANLIMIT=#:10 MAXLIST=b:60,e:60,I:60 NICKLEN=30 CHANNELLEN=32 TOPICLEN=307 KICKLEN=307 AWAYLEN=307 MAXTARGETS=20 :are supported by this server");
-        $user->send(":{$config['name']} 005 {$nick} WALLCHOPS WATCH=128 SILENCE=15 MODES=12 CHANTYPES=# PREFIX=(qaohv)~&@%+ CHANMODES=beI,kfL,lj,psmntirRcOAQKVCuzNSMTG NETWORK={$config['net']} CASEMAPPING=ascii EXTBAN=~,cqnr ELIST=MNUCT STATUSMSG=~&@%+ EXCEPTS :are supported by this server");
-        $user->send(":{$config['name']} 005 {$nick} INVEX :are supported by this server");
+        // ISUPPORT (005) Nachrichten - Verbessert und auf tatsächliche Server-Fähigkeiten abgestimmt
+        // Erste Zeile der ISUPPORT-Nachrichten
+        $user->send(":{$config['name']} 005 {$nick} CHANTYPES=# EXCEPTS INVEX CHANMODES=eIbq,k,flj,CFLMPQScgimnprstuz CHANLIMIT=#:20 PREFIX=(ov)@+ MAXLIST=bqeI:100 MODES=4 NETWORK={$config['net']} KNOCK :are supported by this server");
         
-        // Statistics
+        // Zweite Zeile der ISUPPORT-Nachrichten
+        $user->send(":{$config['name']} 005 {$nick} CALLERID=g SAFELIST ELIST=U STATUSMSG=@+ CHANNELLEN=32 NICKLEN=30 TOPICLEN=307 KICKLEN=307 AWAYLEN=307 SILENCE=15 :are supported by this server");
+        
+        // Dritte Zeile mit zusätzlichen IRCv3-Features
+        $user->send(":{$config['name']} 005 {$nick} CASEMAPPING=rfc1459 CHARSET=ascii MAXTARGETS=4 WATCH=128 NAMESX UHNAMES USERIP WALLCHOPS FNC :are supported by this server");
+        
+        // Statistiken senden
         $userCount = count($this->server->getUsers());
         $channelCount = count($this->server->getChannels());
+        $operCount = 0;
+        
+        foreach ($this->server->getUsers() as $serverUser) {
+            if ($serverUser->isOper()) {
+                $operCount++;
+            }
+        }
         
         $user->send(":{$config['name']} 251 {$nick} :There are {$userCount} users and 0 invisible on 1 servers");
-        $user->send(":{$config['name']} 252 {$nick} 1 :operator(s) online");
+        $user->send(":{$config['name']} 252 {$nick} {$operCount} :operator(s) online");
         $user->send(":{$config['name']} 254 {$nick} {$channelCount} :channels formed");
         $user->send(":{$config['name']} 255 {$nick} :I have {$userCount} clients and 0 servers");
         $user->send(":{$config['name']} 265 {$nick} :Current Local Users: {$userCount}  Max: {$userCount}");
