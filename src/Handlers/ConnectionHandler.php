@@ -57,6 +57,7 @@ class ConnectionHandler {
         $this->registerCommandHandler('UNREGISTER', new \PhpIrcd\Commands\UnregisterCommand($this->server));
         $this->registerCommandHandler('SASL', new \PhpIrcd\Commands\SaslCommand($this->server));
         $this->registerCommandHandler('AUTHENTICATE', new \PhpIrcd\Commands\SaslCommand($this->server));
+        $this->registerCommandHandler('KILL', new \PhpIrcd\Commands\KillCommand($this->server));
         
         // Neue Befehle registrieren
         $this->registerCommandHandler('ADMIN', new \PhpIrcd\Commands\AdminCommand($this->server));
