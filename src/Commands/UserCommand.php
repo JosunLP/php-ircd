@@ -88,6 +88,9 @@ class UserCommand extends CommandBase {
         $user->send(":{$config['name']} 265 {$nick} :Current Local Users: {$userCount}  Max: {$userCount}");
         $user->send(":{$config['name']} 266 {$nick} :Current Global Users: {$userCount}  Max: {$userCount}");
         
+        // Send WATCH notifications that this user is now online
+        $this->server->broadcastWatchNotifications($user, true);
+        
         // Send MOTD
         $this->sendMotd($user);
     }

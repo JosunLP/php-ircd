@@ -23,6 +23,7 @@ class User {
     private $saslAuthenticated = false; // Neu: SASL-Authentifizierung erfolgreich
     private $capabilities = []; // Neu: Aktivierte IRCv3 Capabilities
     private $silencedMasks = []; // Neu: Liste von ignorierten User-Masken (SILENCE)
+    private $watchList = []; // Neu: Liste von beobachteten Nicknames (WATCH)
     
     /**
      * Constructor
@@ -515,5 +516,62 @@ class User {
         
         // Check if the string matches the mask
         return (bool) preg_match('/^' . $mask . '$/i', $string);
+    }
+
+    /**
+     * Get the watch list
+     * 
+     * @return array The list of watched nicknames
+     */
+    public function getWatchList(): array {
+        return $this->watchList;
+    }
+    
+    /**
+     * Add a nickname to the watch list
+     * 
+     * @param string $nickname The nickname to watch
+     * @return bool Success
+     */
+    public function addToWatchList(string $nickname): bool {
+        $nickname = strtolower($nickname); // Case-insensitive storage
+        
+        // Check if already watching this nickname
+        if (in_array($nickname, $this->watchList)) {
+            return true;
+        }
+        
+        // Check for maximum watch list size
+        if (count($this->watchList) >= 128) { // Maximum specified in ISUPPORT
+            return false;
+        }
+        
+        $this->watchList[] = $nickname;
+        return true;
+    }
+    
+    /**
+     * Remove a nickname from the watch list
+     * 
+     * @param string $nickname The nickname to remove
+     * @return bool Whether the nickname was removed
+     */
+    public function removeFromWatchList(string $nickname): bool {
+        $nickname = strtolower($nickname); // Case-insensitive search
+        
+        $key = array_search($nickname, $this->watchList);
+        if ($key !== false) {
+            unset($this->watchList[$key]);
+            $this->watchList = array_values($this->watchList); // Reindex array
+            return true;
+        }
+        return false;
+    }
+    
+    /**
+     * Clear the watch list
+     */
+    public function clearWatchList(): void {
+        $this->watchList = [];
     }
 }

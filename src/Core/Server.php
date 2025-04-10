@@ -764,4 +764,63 @@ class Server {
         
         return $entries;
     }
+    
+    /**
+     * Sends WATCH notifications to all users who have this user on their watch list
+     * when a user connects or changes nickname
+     * 
+     * @param User $user The user whose status changed
+     * @param bool $isOnline Whether the user is now online (true) or offline (false)
+     * @param string|null $oldNick The previous nickname, if this is a nickname change
+     */
+    public function broadcastWatchNotifications(User $user, bool $isOnline = true, ?string $oldNick = null): void {
+        $config = $this->getConfig();
+        $nick = $user->getNick();
+        
+        // Keine Benachrichtigungen, wenn kein Nickname gesetzt ist
+        if ($nick === null) {
+            return;
+        }
+        
+        // Wenn es ein Nicknamen-Wechsel ist, Benachrichtigungen für den alten Namen senden
+        if ($oldNick !== null) {
+            $this->sendOfflineWatchNotifications($oldNick);
+        }
+        
+        // Für alle Benutzer auf dem Server prüfen
+        foreach ($this->users as $watcher) {
+            $watchList = $watcher->getWatchList();
+            
+            // Prüfen, ob der aktuelle Benutzer in der Watch-Liste ist
+            if (in_array(strtolower($nick), $watchList)) {
+                if ($isOnline) {
+                    // Online-Benachrichtigung senden
+                    $watcher->send(":{$config['name']} 604 {$watcher->getNick()} {$nick} {$user->getIdent()} {$user->getHost()} {$user->getLastActivity()} :is online");
+                } else {
+                    // Offline-Benachrichtigung senden
+                    $watcher->send(":{$config['name']} 605 {$watcher->getNick()} {$nick} :is offline");
+                }
+            }
+        }
+    }
+    
+    /**
+     * Sends offline notifications for a nickname that is no longer used
+     * 
+     * @param string $nickname The nickname that went offline
+     */
+    private function sendOfflineWatchNotifications(string $nickname): void {
+        $config = $this->getConfig();
+        
+        // Für alle Benutzer auf dem Server prüfen
+        foreach ($this->users as $watcher) {
+            $watchList = $watcher->getWatchList();
+            
+            // Prüfen, ob der Nickname in der Watch-Liste ist
+            if (in_array(strtolower($nickname), $watchList)) {
+                // Offline-Benachrichtigung senden
+                $watcher->send(":{$config['name']} 605 {$watcher->getNick()} {$nickname} :is offline");
+            }
+        }
+    }
 }

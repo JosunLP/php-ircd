@@ -71,6 +71,9 @@ class NickCommand extends CommandBase {
                     }
                 }
             }
+            
+            // Send WATCH notifications about the nickname change
+            $this->server->broadcastWatchNotifications($user, true, $oldNick);
         }
     }
     

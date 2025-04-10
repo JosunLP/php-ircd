@@ -72,6 +72,7 @@ class ConnectionHandler {
         $this->registerCommandHandler('KNOCK', new \PhpIrcd\Commands\KnockCommand($this->server));
         $this->registerCommandHandler('SERVICE', new \PhpIrcd\Commands\ServiceCommand($this->server));
         $this->registerCommandHandler('SQUIT', new \PhpIrcd\Commands\SquitCommand($this->server));
+        $this->registerCommandHandler('WATCH', new \PhpIrcd\Commands\WatchCommand($this->server));
     }
     
     /**
@@ -245,6 +246,11 @@ class ConnectionHandler {
         // Benutzer zur WHOWAS-Historie hinzufügen, wenn er registriert war
         if ($user->isRegistered()) {
             $this->server->addToWhowasHistory($user);
+            
+            // Send WATCH notifications that the user is now offline before removing from server
+            if ($user->getNick() !== null) {
+                $this->server->broadcastWatchNotifications($user, false);
+            }
         }
         
         // Notify all channels the user is in
