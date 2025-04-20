@@ -61,8 +61,30 @@ class User {
      * @return string The hostname or the IP if the lookup fails
      */
     private function lookupHostname(string $ip): string {
-        $hostname = gethostbyaddr($ip);
-        return $hostname ?: $ip;
+        // Set a short timeout for DNS lookup to avoid hanging
+        $origTimeout = ini_get('default_socket_timeout');
+        ini_set('default_socket_timeout', '3'); // 3 seconds timeout
+        
+        try {
+            // Try to use non-blocking hostname lookup if possible
+            if (function_exists('gethostbyaddr_async')) {
+                $hostname = gethostbyaddr_async($ip, 3); // 3 seconds timeout
+            } else {
+                $hostname = gethostbyaddr($ip);
+            }
+            
+            // Validate hostname format
+            if ($hostname && $hostname !== $ip && preg_match('/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/', $hostname)) {
+                return $hostname;
+            }
+        } catch (\Exception $e) {
+            // Fallback to IP on any error
+        } finally {
+            // Reset original timeout
+            ini_set('default_socket_timeout', $origTimeout);
+        }
+        
+        return $ip;
     }
     
     /**
@@ -72,6 +94,10 @@ class User {
      * @return bool Success of sending
      */
     public function send(string $data): bool {
+        if (!$this->isSocketValid()) {
+            return false;
+        }
+        
         try {
             if ($this->isStreamSocket) {
                 // Stream-Sockets (SSL) verwenden fwrite
@@ -94,6 +120,10 @@ class User {
      * @return string|false The read data or false on error/connection loss
      */
     public function read(int $maxLen = 512) {
+        if (!$this->isSocketValid()) {
+            return false;
+        }
+        
         try {
             if ($this->isStreamSocket) {
                 // Stream-Sockets (SSL) lesen
@@ -132,17 +162,38 @@ class User {
     }
     
     /**
+     * Validate if the socket is still valid
+     * 
+     * @return bool Whether the socket is valid
+     */
+    public function isSocketValid(): bool {
+        if ($this->isStreamSocket) {
+            return is_resource($this->socket) && !feof($this->socket);
+        } else {
+            // Check if the socket is still a valid socket resource
+            return $this->socket instanceof \Socket && @socket_get_status($this->socket) !== false;
+        }
+    }
+    
+    /**
      * Close connection
      */
     public function disconnect(): void {
-        if ($this->isStreamSocket) {
-            if (is_resource($this->socket)) {
-                @fclose($this->socket);
+        try {
+            if ($this->isStreamSocket) {
+                if (is_resource($this->socket)) {
+                    @fclose($this->socket);
+                }
+            } else {
+                if ($this->socket instanceof \Socket) {
+                    @socket_close($this->socket);
+                }
             }
-        } else {
-            if ($this->socket instanceof \Socket) {
-                @socket_close($this->socket);
-            }
+        } catch (\Exception $e) {
+            // Ignore exceptions during disconnect
+        } finally {
+            // Reset the socket reference to prevent further use
+            $this->socket = null;
         }
     }
     
@@ -231,11 +282,44 @@ class User {
     
     /**
      * Check if all necessary data for registration is available
+     * And validate the registration data
      */
     private function checkRegistration(): void {
-        if (!$this->registered && $this->nick !== null && $this->ident !== null && $this->realname !== null) {
-            $this->registered = true;
+        if (!$this->registered && 
+            $this->nick !== null && 
+            $this->ident !== null && 
+            $this->realname !== null) {
+            
+            // Basic validation of user info
+            if ($this->validateUserInfo()) {
+                $this->registered = true;
+                $this->updateActivity(); // Update activity timestamp on registration
+            }
         }
+    }
+    
+    /**
+     * Validate user information
+     * 
+     * @return bool Whether the user information is valid
+     */
+    private function validateUserInfo(): bool {
+        // Nickname format validation - alphanumeric plus some special chars
+        if (!preg_match('/^[a-zA-Z\[\]\\`_\^{|}][a-zA-Z0-9\[\]\\`_\^{|}-]{0,29}$/', $this->nick)) {
+            return false;
+        }
+        
+        // Ident format validation
+        if (!preg_match('/^[a-zA-Z0-9~._-]{1,12}$/', $this->ident)) {
+            return false;
+        }
+        
+        // Realname only length validation (can contain spaces and special chars)
+        if (strlen($this->realname) > 50) {
+            return false;
+        }
+        
+        return true;
     }
     
     /**
@@ -701,5 +785,153 @@ class User {
         // Ansonsten verwenden wir eine Kombination aus Nickname und Verbindungszeit
         // So bleibt die ID auch bei Nickname-Änderungen konsistent
         return 'user_' . md5($this->nick . '_' . $this->connectTime);
+    }
+
+    /**
+     * Authenticate user with SASL
+     * 
+     * @param string $mechanism SASL mechanism
+     * @param string $data Authentication data
+     * @return bool Success of authentication
+     */
+    public function authenticateWithSasl(string $mechanism, string $data): bool {
+        if (!$this->saslInProgress) {
+            return false;
+        }
+        
+        // Get server configuration
+        if (!$this->server || !method_exists($this->server, 'getConfig')) {
+            return false;
+        }
+        
+        $config = $this->server->getConfig();
+        if (!isset($config['sasl_enabled']) || !$config['sasl_enabled']) {
+            return false;
+        }
+        
+        // Check if the mechanism is supported
+        if (!isset($config['sasl_mechanisms']) || 
+            !is_array($config['sasl_mechanisms']) || 
+            !in_array($mechanism, $config['sasl_mechanisms'])) {
+            return false;
+        }
+        
+        // Process by mechanism
+        switch (strtoupper($mechanism)) {
+            case 'PLAIN':
+                return $this->authenticateWithSaslPlain($data, $config);
+                
+            case 'EXTERNAL':
+                return $this->authenticateWithSaslExternal($config);
+                
+            default:
+                return false;
+        }
+    }
+    
+    /**
+     * Authenticate with PLAIN SASL mechanism
+     * 
+     * @param string $data Base64 encoded authentication string
+     * @param array $config Server configuration
+     * @return bool Success of authentication
+     */
+    private function authenticateWithSaslPlain(string $data, array $config): bool {
+        // Decode base64 data
+        $decoded = base64_decode($data, true);
+        if ($decoded === false) {
+            return false;
+        }
+        
+        // PLAIN format: \0username\0password
+        $parts = explode("\0", $decoded);
+        if (count($parts) < 3) {
+            return false;
+        }
+        
+        // Extract username and password (ignore the first part, which is usually empty)
+        $username = $parts[1];
+        $password = $parts[2];
+        
+        // Check against SASL user database
+        if (!isset($config['sasl_users']) || !is_array($config['sasl_users'])) {
+            return false;
+        }
+        
+        foreach ($config['sasl_users'] as $saslUser) {
+            if (isset($saslUser['username']) && isset($saslUser['password']) && 
+                $saslUser['username'] === $username && $saslUser['password'] === $password) {
+                
+                $this->saslAuthenticated = true;
+                $this->setMode('r', true); // Set registered user mode
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Authenticate with EXTERNAL SASL mechanism (using SSL certificates)
+     * 
+     * @param array $config Server configuration
+     * @return bool Success of authentication
+     */
+    private function authenticateWithSaslExternal(array $config): bool {
+        // Check if the connection is secured
+        if (!$this->isStreamSocket) {
+            return false;
+        }
+        
+        // In a real implementation, we would check the client certificate here
+        // This is a simplified version that just checks if SSL is being used
+        if ($this->isSecureConnection()) {
+            $this->saslAuthenticated = true;
+            $this->setMode('r', true); // Set registered user mode
+            return true;
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Get the raw socket status
+     * 
+     * @return array|false Socket status or false if not available
+     */
+    public function getSocketStatus() {
+        if (!$this->isSocketValid()) {
+            return false;
+        }
+        
+        if ($this->isStreamSocket) {
+            return stream_get_meta_data($this->socket);
+        }
+        
+        return @socket_get_status($this->socket);
+    }
+    
+    /**
+     * Set socket timeout
+     * 
+     * @param int $seconds Timeout in seconds
+     * @return bool Success of setting timeout
+     */
+    public function setSocketTimeout(int $seconds): bool {
+        if (!$this->isSocketValid()) {
+            return false;
+        }
+        
+        try {
+            if ($this->isStreamSocket) {
+                return stream_set_timeout($this->socket, $seconds);
+            } else {
+                $timeout = ['sec' => $seconds, 'usec' => 0];
+                return socket_set_option($this->socket, SOL_SOCKET, SO_RCVTIMEO, $timeout) && 
+                       socket_set_option($this->socket, SOL_SOCKET, SO_SNDTIMEO, $timeout);
+            }
+        } catch (\Exception $e) {
+            return false;
+        }
     }
 }

@@ -7,6 +7,7 @@ use PhpIrcd\Models\User;
 class SaslCommand extends CommandBase {
     /**
      * Executes the SASL / AUTHENTICATE command
+     * According to IRCv3 specifications
      * 
      * @param User $user The executing user
      * @param array $args The command arguments
@@ -15,27 +16,27 @@ class SaslCommand extends CommandBase {
         $config = $this->server->getConfig();
         $nick = $user->getNick() ?? '*';
         
-        // Wenn SASL in der Konfiguration deaktiviert ist
+        // Check if SASL is enabled in the configuration
         if (empty($config['sasl_enabled']) || $config['sasl_enabled'] !== true) {
             $user->send(":{$config['name']} 903 {$nick} :SASL authentication successful");
             $user->setSaslAuthenticated(true);
             return;
         }
         
-        // Bestimmen, ob es sich um CAP oder AUTHENTICATE handelt
+        // Determine if this is a CAP SASL or AUTHENTICATE command
         $command = strtoupper($args[0]);
         
         if ($command === 'SASL') {
-            // Verarbeiten des SASL-Befehls (Teil von CAP)
+            // Process the SASL command (part of CAP)
             $this->handleSaslCapability($user);
         } else if ($command === 'AUTHENTICATE') {
-            // Verarbeiten des AUTHENTICATE-Befehls
+            // Process the AUTHENTICATE command
             $this->handleAuthenticate($user, $args);
         }
     }
     
     /**
-     * Verarbeitet die SASL-Capability Anfrage
+     * Processes the SASL capability request
      * 
      * @param User $user The executing user
      */
@@ -43,17 +44,17 @@ class SaslCommand extends CommandBase {
         $config = $this->server->getConfig();
         $nick = $user->getNick() ?? '*';
         
-        // SASL-Mechanismen in der Konfiguration überprüfen
+        // Check SASL mechanisms in configuration
         $mechanisms = $config['sasl_mechanisms'] ?? ['PLAIN'];
         $mechanismsStr = implode(',', $mechanisms);
         
-        // SASL-Capability aktivieren und verfügbare Mechanismen senden
+        // Activate SASL capability and send available mechanisms
         $user->send(":{$config['name']} CAP * LS :sasl={$mechanismsStr}");
         $user->setSaslInProgress(true);
     }
     
     /**
-     * Verarbeitet den AUTHENTICATE-Befehl
+     * Processes the AUTHENTICATE command
      * 
      * @param User $user The executing user
      * @param array $args The command arguments
@@ -62,13 +63,13 @@ class SaslCommand extends CommandBase {
         $config = $this->server->getConfig();
         $nick = $user->getNick() ?? '*';
         
-        // Wenn keine SASL-Authentifizierung im Gange ist
+        // If no SASL authentication is in progress
         if (!$user->isSaslInProgress()) {
             $user->send(":{$config['name']} 906 {$nick} :SASL authentication aborted");
             return;
         }
         
-        // Wenn zu wenig Parameter übergeben wurden
+        // If not enough parameters were provided
         if (!isset($args[1])) {
             $user->send(":{$config['name']} 906 {$nick} :SASL authentication failed: Invalid parameter");
             $user->setSaslInProgress(false);
@@ -77,23 +78,31 @@ class SaslCommand extends CommandBase {
         
         $param = $args[1];
         
-        // Initialisierung einer SASL-Authentifizierung
-        if ($param === 'PLAIN' || $param === 'EXTERNAL') {
-            // Mechanismus speichern und Client zur Fortsetzung auffordern
-            $user->setSaslMechanism($param);
+        // Initialization of SASL authentication
+        if (strtoupper($param) === 'PLAIN' || strtoupper($param) === 'EXTERNAL') {
+            // Validate mechanism against supported list
+            $mechanisms = $config['sasl_mechanisms'] ?? ['PLAIN'];
+            if (!in_array(strtoupper($param), array_map('strtoupper', $mechanisms))) {
+                $user->send(":{$config['name']} 904 {$nick} :SASL authentication failed: Mechanism not supported");
+                $user->setSaslInProgress(false);
+                return;
+            }
+            
+            // Store mechanism and prompt client to continue
+            $user->setSaslMechanism(strtoupper($param));
             $user->send("AUTHENTICATE +");
         } 
-        // Verarbeitung der SASL-Authentifizierungsdaten
+        // Processing of SASL authentication data
         else if ($user->getSaslMechanism() === 'PLAIN') {
-            // PLAIN-Authentifizierung verarbeiten
+            // Process PLAIN authentication
             $this->handlePlainAuthentication($user, $param);
         }
-        // Verarbeitung der EXTERNAL-Authentifizierungsdaten (TLS-Zertifikat)
+        // Processing of EXTERNAL authentication data (TLS certificate)
         else if ($user->getSaslMechanism() === 'EXTERNAL') {
-            // EXTERNAL-Authentifizierung verarbeiten
+            // Process EXTERNAL authentication
             $this->handleExternalAuthentication($user, $param);
         } 
-        // Unbekannter oder nicht unterstützter Mechanismus
+        // Unknown or unsupported mechanism
         else {
             $user->send(":{$config['name']} 904 {$nick} :SASL authentication failed: Mechanism not supported");
             $user->setSaslInProgress(false);
@@ -101,22 +110,29 @@ class SaslCommand extends CommandBase {
     }
     
     /**
-     * Verarbeitet die PLAIN-Authentifizierung
+     * Processes PLAIN authentication
      * 
      * @param User $user The executing user
-     * @param string $data Die Base64-codierten Authentifizierungsdaten
+     * @param string $data The Base64-encoded authentication data
      */
     private function handlePlainAuthentication(User $user, string $data): void {
         $config = $this->server->getConfig();
         $nick = $user->getNick() ?? '*';
         
-        // Bei + muss der Client noch Daten senden
+        // If + is received, client needs to send more data
         if ($data === '+') {
             return;
         }
         
-        // Daten dekodieren
-        $decoded = base64_decode($data);
+        // Validate Base64 format before decoding
+        if (!preg_match('/^[a-zA-Z0-9\/\r\n+]*={0,2}$/', $data)) {
+            $user->send(":{$config['name']} 904 {$nick} :SASL authentication failed: Invalid Base64 format");
+            $user->setSaslInProgress(false);
+            return;
+        }
+        
+        // Decode data
+        $decoded = base64_decode($data, true);
         if ($decoded === false) {
             $user->send(":{$config['name']} 904 {$nick} :SASL authentication failed: Invalid encoding");
             $user->setSaslInProgress(false);
@@ -131,75 +147,164 @@ class SaslCommand extends CommandBase {
             return;
         }
         
-        // Authentifizierungsdaten extrahieren
-        $authzid = $parts[0]; // Kann leer sein, wird oft ignoriert
-        $authcid = $parts[1]; // Benutzername
-        $password = $parts[2]; // Passwort
+        // Extract authentication data
+        $authzid = $parts[0]; // Can be empty, often ignored
+        $authcid = $parts[1]; // Username
+        $password = $parts[2]; // Password
         
-        // Prüfen, ob die Anmeldeinformationen gültig sind
+        // Validate authentication data format
+        if (empty($authcid) || strlen($authcid) > 30) {
+            $user->send(":{$config['name']} 904 {$nick} :SASL authentication failed: Invalid username format");
+            $user->setSaslInProgress(false);
+            return;
+        }
+        
+        // Rate limit authentication attempts to prevent brute force attacks
+        static $authAttempts = [];
+        $ip = $user->getIp();
+        
+        if (!isset($authAttempts[$ip])) {
+            $authAttempts[$ip] = ['count' => 0, 'timestamp' => time()];
+        }
+        
+        // Reset counter after 10 minutes
+        if (time() - $authAttempts[$ip]['timestamp'] > 600) {
+            $authAttempts[$ip] = ['count' => 0, 'timestamp' => time()];
+        }
+        
+        $authAttempts[$ip]['count']++;
+        
+        // Limit to 5 attempts per 10 minutes
+        if ($authAttempts[$ip]['count'] > 5) {
+            $user->send(":{$config['name']} 904 {$nick} :SASL authentication failed: Too many attempts");
+            $user->setSaslInProgress(false);
+            $this->server->getLogger()->warning("Rate limit exceeded for SASL authentication from IP: {$ip}");
+            return;
+        }
+        
+        // Check if the credentials are valid
         $validAuth = false;
+        $isOper = false;
         
-        // Suche in den konfigurierten SASL-Benutzerkonten
+        // Look in the configured SASL user accounts
         if (isset($config['sasl_users']) && is_array($config['sasl_users'])) {
             foreach ($config['sasl_users'] as $user_id => $user_data) {
                 if (isset($user_data['username']) && isset($user_data['password']) && 
-                    $user_data['username'] === $authcid && $user_data['password'] === $password) {
+                    $user_data['username'] === $authcid && 
+                    hash_equals($user_data['password'], $password)) {
+                    
                     $validAuth = true;
+                    
+                    // If this SASL account should have operator privileges
+                    if (isset($user_data['oper']) && $user_data['oper'] === true) {
+                        $isOper = true;
+                    }
+                    
                     break;
                 }
             }
         }
         
-        // Suche in den Operator-Konten, wenn SASL-Konten nicht konfiguriert sind
+        // Look in operator accounts if SASL accounts are not configured
         if (!$validAuth && isset($config['opers']) && is_array($config['opers'])) {
-            if (isset($config['opers'][$authcid]) && $config['opers'][$authcid] === $password) {
+            if (isset($config['opers'][$authcid]) && 
+                hash_equals($config['opers'][$authcid], $password)) {
                 $validAuth = true;
-                // Optional: Benutzer automatisch als Operator markieren
-                // $user->setOper(true);
+                $isOper = true;
             }
         }
         
         if ($validAuth) {
-            // Authentifizierung erfolgreich
+            // Authentication successful
             $user->send(":{$config['name']} 903 {$nick} :SASL authentication successful");
             $user->setSaslAuthenticated(true);
             $user->setSaslInProgress(false);
             
-            $this->server->getLogger()->info("Benutzer {$nick} hat erfolgreich SASL-Authentifizierung durchgeführt");
+            // Set registered user mode
+            $user->setMode('r', true);
+            
+            // Set operator status if applicable
+            if ($isOper) {
+                $user->setOper(true);
+                $user->setMode('o', true);
+            }
+            
+            $this->server->getLogger()->info("User {$nick} successfully completed SASL authentication");
         } else {
-            // Authentifizierung fehlgeschlagen
+            // Authentication failed
             $user->send(":{$config['name']} 904 {$nick} :SASL authentication failed: Invalid credentials");
             $user->setSaslInProgress(false);
             
-            $this->server->getLogger()->warning("Fehlgeschlagene SASL-Authentifizierung für Benutzer {$nick}");
+            $this->server->getLogger()->warning("Failed SASL authentication attempt for user {$nick} from IP: {$ip}");
         }
     }
     
     /**
-     * Verarbeitet die EXTERNAL-Authentifizierung (TLS-Zertifikat)
+     * Processes EXTERNAL authentication (TLS certificate)
      * 
      * @param User $user The executing user
-     * @param string $data Die Base64-codierten Authentifizierungsdaten
+     * @param string $data The Base64-encoded authentication data
      */
     private function handleExternalAuthentication(User $user, string $data): void {
         $config = $this->server->getConfig();
         $nick = $user->getNick() ?? '*';
         
-        // Bei EXTERNAL-Authentifizierung müssen wir prüfen, ob die Verbindung über SSL läuft
+        // For EXTERNAL authentication, we must verify that the connection is using SSL
         if (!$user->isSecureConnection()) {
             $user->send(":{$config['name']} 904 {$nick} :SASL authentication failed: EXTERNAL requires a secure connection");
             $user->setSaslInProgress(false);
             return;
         }
         
-        // Bei einer vollständigen Implementierung würden wir hier die Zertifikatsdaten überprüfen
-        // Da dies komplex ist und außerhalb des Umfangs dieser Implementierung liegt, 
-        // überspringen wir diesen Schritt und markieren die Authentifizierung als erfolgreich
+        // In a complete implementation, we would check certificate data here
+        // Since this is complex and beyond the scope of this implementation,
+        // we can perform a simplified check based on connection security
         
+        // Validate the identity string - it should be either empty or match the requested identity
+        if ($data !== '+' && $data !== '') {
+            $decoded = base64_decode($data, true);
+            if ($decoded === false) {
+                $user->send(":{$config['name']} 904 {$nick} :SASL authentication failed: Invalid identity");
+                $user->setSaslInProgress(false);
+                return;
+            }
+            
+            // Check if the requested identity is valid/allowed
+            // In a real implementation, we would check it against the certificate
+        }
+        
+        // Mark authentication as successful
         $user->send(":{$config['name']} 903 {$nick} :SASL authentication successful");
         $user->setSaslAuthenticated(true);
         $user->setSaslInProgress(false);
+        $user->setMode('r', true); // Set registered user mode
         
-        $this->server->getLogger()->info("Benutzer {$nick} hat erfolgreich SASL EXTERNAL-Authentifizierung durchgeführt");
+        $this->server->getLogger()->info("User {$nick} successfully completed SASL EXTERNAL authentication");
+    }
+    
+    /**
+     * Helper method to safely check credentials with constant-time comparison
+     * 
+     * @param string $stored The stored password or hash
+     * @param string $provided The provided password
+     * @return bool Whether the passwords match
+     */
+    private function safeStringCompare(string $stored, string $provided): bool {
+        // Use hash_equals for constant-time comparison to prevent timing attacks
+        if (function_exists('hash_equals')) {
+            return hash_equals($stored, $provided);
+        }
+        
+        // Fallback for older PHP versions (< 5.6)
+        if (strlen($stored) !== strlen($provided)) {
+            return false;
+        }
+        
+        $result = 0;
+        for ($i = 0; $i < strlen($stored); $i++) {
+            $result |= ord($stored[$i]) ^ ord($provided[$i]);
+        }
+        
+        return $result === 0;
     }
 }

@@ -25,54 +25,55 @@ class Config {
         'debug_mode' => true,                    // Debug mode
         'log_level' => 0,                        // 0=Debug, 1=Info, 2=Warn, 3=Error
         'log_file' => 'ircd.log',                // Path to log file
-        'motd' => "Willkommen bei deinem lokalen IRC-Testserver!\n\nDieser Server läuft auf localhost und ist zum Testen gedacht.\n\nDu kannst IRC-Operator werden mit folgendem Befehl:\n/OPER admin test123\n\nViel Spaß beim Testen!",
+        'motd' => "Willkommen bei deinem lokalen IRC-Testserver!\n\nDieser Server läuft auf localhost und ist zum Testen gedacht.\n\nDu kannst IRC-Operator werden mit folgendem Befehl:\n/OPER admin password\n\nViel Spaß beim Testen!",
         'description' => 'PHP-IRCd Testserver',  // Server description for LINKS command
         'opers' => [
-            'admin' => 'test123'
+            // Default operator credentials should be set in configuration file
+            // Format: 'username' => 'password'
         ],
-        'operator_passwords' => [                // Passwörter für die Authentifizierung (Neu)
-            'admin' => 'test123'
+        'operator_passwords' => [                // Passwords for authentication
+            // Format: 'username' => 'password'
         ],
-        'storage_dir' => 'storage',              // Verzeichnis für Datenspeicherung
-        'log_to_console' => true,                // Logs in Konsole anzeigen
+        'storage_dir' => 'storage',              // Directory for data storage
+        'log_to_console' => true,                // Show logs in console
         
-        // Admin-Informationen für den ADMIN-Befehl
-        'admin_name' => 'PHP-IRCd Administrator',  // Name des Administrators
-        'admin_email' => 'admin@example.com',      // E-Mail des Administrators
-        'admin_location' => 'Lokal',               // Standort des Servers
+        // Admin information for the ADMIN command
+        'admin_name' => 'PHP-IRCd Administrator',  // Administrator name
+        'admin_email' => 'admin@example.com',      // Administrator email
+        'admin_location' => 'Local',               // Server location
         
-        // Server-Informationen für den INFO-Befehl
+        // Server information for the INFO command
         'server_info' => [
-            'PHP-IRCd Server basierend auf Danoserv',
-            'Läuft auf PHP 8.0+',
-            'Erstellt im April 2025',
-            'Ursprünglich erstellt von Daniel Danopia (2008)',
-            'Mit Web-Schnittstelle für einfache Bedienung'
+            'PHP-IRCd Server based on Danoserv',
+            'Running on PHP 8.0+',
+            'Created in April 2025',
+            'Originally created by Daniel Danopia (2008)',
+            'With web interface for easy usage'
         ],
         
-        // Server-zu-Server-Kommunikation (neu)
-        'enable_server_links' => false,           // Server-zu-Server-Verbindungen aktivieren
-        'server_password' => 'server_pass123',    // Passwort für Server-Verbindungen
-        'hub_mode' => false,                      // Server als Hub betreiben (vermittelt zwischen Servern)
-        'auto_connect_servers' => [               // Automatisch zu verbindende Server
+        // Server-to-server communication
+        'enable_server_links' => false,           // Enable server-to-server connections
+        'server_password' => '',                  // Password for server connections
+        'hub_mode' => false,                      // Run server as hub (mediates between servers)
+        'auto_connect_servers' => [               // Automatically connect to these servers
             // Format: 'server_name' => ['host' => 'hostname', 'port' => port, 'password' => 'pass', 'ssl' => true/false]
         ],
         
-        // IRCv3-Funktionen (neu)
-        'cap_enabled' => true,                    // IRCv3 Capability Negotiation aktivieren
-        'sasl_enabled' => true,                   // SASL-Authentifizierung aktivieren
-        'sasl_mechanisms' => ['PLAIN', 'EXTERNAL'], // Unterstützte SASL-Mechanismen
-        'sasl_users' => [                          // SASL-Benutzerkonten
+        // IRCv3 features
+        'cap_enabled' => true,                    // Enable IRCv3 Capability Negotiation
+        'sasl_enabled' => true,                   // Enable SASL authentication
+        'sasl_mechanisms' => ['PLAIN', 'EXTERNAL'], // Supported SASL mechanisms
+        'sasl_users' => [                          // SASL user accounts
             // Format: 'id' => ['username' => 'user', 'password' => 'pass']
         ],
         
-        // Erweiterte Features (neu)
-        'cloak_hostnames' => true,                // Hostnamen verschleiern
-        'max_watch_entries' => 128,               // Maximale Anzahl von WATCH-Einträgen
-        'max_silence_entries' => 15,              // Maximale Anzahl von SILENCE-Einträgen
-        'default_user_modes' => '',               // Standardmäßige Benutzer-Modi
-        'default_channel_modes' => 'nt',          // Standardmäßige Kanal-Modi
-        'max_channels_per_user' => 10,            // Maximale Anzahl von Kanälen pro Benutzer
+        // Advanced features
+        'cloak_hostnames' => true,                // Cloak hostnames
+        'max_watch_entries' => 128,               // Maximum number of WATCH entries
+        'max_silence_entries' => 15,              // Maximum number of SILENCE entries
+        'default_user_modes' => '',               // Default user modes
+        'default_channel_modes' => 'nt',          // Default channel modes
+        'max_channels_per_user' => 10,            // Maximum number of channels per user
     ];
     
     /**
@@ -109,10 +110,43 @@ class Config {
         // Merge with default configuration
         if (isset($config) && is_array($config)) {
             $this->config = array_merge($this->defaultConfig, $config);
+            $this->validateConfig();
             return true;
         }
         
         return false;
+    }
+    
+    /**
+     * Validate the configuration values
+     * 
+     * Makes sure that critical configuration values are valid
+     */
+    private function validateConfig(): void {
+        // Ensure port is in valid range
+        if (!is_numeric($this->config['port']) || $this->config['port'] < 1 || $this->config['port'] > 65535) {
+            $this->config['port'] = 6667;
+        }
+        
+        // Ensure SSL is properly configured
+        if ($this->config['ssl_enabled'] && (empty($this->config['ssl_cert']) || empty($this->config['ssl_key']))) {
+            $this->config['ssl_enabled'] = false;
+        }
+        
+        // Ensure log level is valid
+        if (!is_numeric($this->config['log_level']) || $this->config['log_level'] < 0 || $this->config['log_level'] > 3) {
+            $this->config['log_level'] = 1;
+        }
+        
+        // Ensure max_users is reasonable
+        if (!is_numeric($this->config['max_users']) || $this->config['max_users'] < 1) {
+            $this->config['max_users'] = 50;
+        }
+        
+        // Ensure server-to-server is properly configured
+        if ($this->config['enable_server_links'] && empty($this->config['server_password'])) {
+            $this->config['enable_server_links'] = false;
+        }
     }
     
     /**

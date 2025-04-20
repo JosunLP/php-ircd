@@ -205,8 +205,7 @@ class ServerLinkHandler {
                 break;
                 
             case 'NICK':
-                // Nickname change or registration
-                $this->handleNickCommand($serverLink, $prefix, $parts);
+                $this->handleNickBurstCommand($serverLink, $prefix, $parts);
                 break;
                 
             case 'JOIN':
@@ -240,11 +239,95 @@ class ServerLinkHandler {
                 $this->handleMessageCommand($serverLink, $prefix, $commandType, $parts);
                 break;
                 
+            case 'SJOIN':
+                $this->handleSJoinCommand($serverLink, $prefix, $parts);
+                break;
+                
             default:
                 // Unknown or unimplemented command
                 $this->server->getLogger()->debug("Unknown server command received: {$commandType}");
                 break;
         }
+    }
+    
+    /**
+     * Verarbeitet das SJOIN-Kommando für Channel-Bursts
+     * 
+     * @param ServerLink $serverLink
+     * @param string $prefix
+     * @param array $parts
+     */
+    private function handleSJoinCommand(ServerLink $serverLink, string $prefix, array $parts): void {
+        // SJOIN <creationtime> <channel> <modes> [:user1 user2 ...]
+        if (count($parts) < 4) return;
+        $creationTime = (int)$parts[1];
+        $channelName = $parts[2];
+        $modes = ltrim($parts[3], '+');
+        $userList = [];
+        $userStart = 4;
+        if (isset($parts[$userStart]) && $parts[$userStart][0] === ':') {
+            $userList = explode(' ', substr(implode(' ', array_slice($parts, $userStart)), 1));
+        }
+        // Channel anlegen oder holen
+        $channel = $this->server->getChannel($channelName);
+        if ($channel === null) {
+            $channel = new Channel($channelName);
+            $this->server->addChannel($channel);
+        }
+        // Setze Channel-Modi
+        foreach (str_split($modes) as $mode) {
+            $channel->setMode($mode, true);
+        }
+        // Setze Creation Time
+        $reflection = new \ReflectionProperty(Channel::class, 'created');
+        $reflection->setAccessible(true);
+        $reflection->setValue($channel, $creationTime);
+        // Füge Benutzer hinzu
+        foreach ($userList as $nick) {
+            if (empty($nick)) continue;
+            $remoteUser = $this->getOrCreateRemoteUser($nick, '', $serverLink);
+            if ($remoteUser !== null) {
+                $channel->addUser($remoteUser);
+            }
+        }
+    }
+    
+    /**
+     * Verarbeitet das NICK-Kommando für User-Bursts von anderen Servern
+     *
+     * @param ServerLink $serverLink
+     * @param string $prefix
+     * @param array $parts
+     */
+    private function handleNickBurstCommand(ServerLink $serverLink, string $prefix, array $parts): void {
+        // NICK <nick> [<hopcount> <ts> <umodes> <ident> <host> <server> <realname>]
+        // Minimal: NICK <nick>
+        if (count($parts) < 2) return;
+        $nick = $parts[1];
+        // Prüfe, ob der User schon existiert
+        foreach ($this->server->getUsers() as $user) {
+            if ($user->getNick() === $nick) {
+                return; // User existiert bereits
+            }
+        }
+        // Standardwerte
+        $ident = 'remote';
+        $host = $serverLink->getName() . '.remote';
+        $realname = 'Remote user';
+        if (count($parts) >= 8) {
+            $ident = $parts[4];
+            $host = $parts[5];
+            $realname = $parts[7];
+        }
+        // Erstelle neuen Remote-User
+        $user = new \PhpIrcd\Models\User(null, $serverLink->getName() . '.remote');
+        $user->setNick($nick);
+        $user->setIdent($ident);
+        $user->setHost($host);
+        $user->setRealname($realname);
+        $user->setRemoteUser(true);
+        $user->setRemoteServer($serverLink->getName());
+        $this->server->addUser($user);
     }
     
     /**
@@ -264,6 +347,36 @@ class ServerLinkHandler {
         
         // Store password in the ServerLink
         $serverLink->setPassword($password);
+    }
+    
+    /**
+     * Synchronisiert alle lokalen Channels und Benutzer mit einem neuen Serverlink (Burst)
+     * 
+     * @param ServerLink $serverLink Der neue Serverlink
+     */
+    private function synchronizeServer(ServerLink $serverLink): void {
+        $config = $this->server->getConfig();
+        // Sende alle Channels
+        foreach ($this->server->getChannels() as $channel) {
+            // Channel-Info
+            $serverLink->send(":{$config['name']} SJOIN {$channel->getCreationTime()} {$channel->getName()} +{$channel->getModeString()}");
+            // Channel-Topic
+            if ($channel->getTopic() !== null) {
+                $serverLink->send(":{$config['name']} TOPIC {$channel->getName()} :{$channel->getTopic()}");
+            }
+            // Channel-User
+            foreach ($channel->getUsers() as $user) {
+                if ($user->isRemoteUser()) continue;
+                $prefix = $user->getNick() . '!' . $user->getIdent() . '@' . $user->getHost();
+                $serverLink->send(":{$prefix} JOIN {$channel->getName()}");
+            }
+        }
+        // Sende alle lokalen Benutzer
+        foreach ($this->server->getUsers() as $user) {
+            if ($user->isRemoteUser()) continue;
+            $prefix = $user->getNick() . '!' . $user->getIdent() . '@' . $user->getHost();
+            $serverLink->send(":{$prefix} NICK {$user->getNick()}");
+        }
     }
     
     /**
@@ -313,6 +426,9 @@ class ServerLinkHandler {
         
         // Log
         $this->server->getLogger()->info("Server {$name} successfully authenticated");
+        
+        // Synchronisation (Burst)
+        $this->synchronizeServer($serverLink);
     }
     
     /**

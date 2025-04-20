@@ -20,6 +20,7 @@ class Server {
     private $whowasHistory = [];   // Speichert WHOWAS-Informationen über Benutzer, die den Server verlassen haben
     private $serverLinkHandler;
     private $serverLinks = [];
+    private $running = false;
     
     /**
      * Die unterstützten IRCv3 Capabilities
@@ -75,7 +76,235 @@ class Server {
     }
     
     /**
+     * Create and configure the socket
+     * 
+     * @throws \RuntimeException If the socket cannot be created or configured
+     */
+    private function createSocket(): void {
+        $this->logger->info("Creating socket...");
+        
+        // Check if SSL is enabled
+        $useSSL = !empty($this->config['ssl_enabled']) && $this->config['ssl_enabled'] === true;
+        
+        try {
+            if ($useSSL) {
+                // Create SSL context if SSL is enabled
+                if (empty($this->config['ssl_cert']) || empty($this->config['ssl_key'])) {
+                    throw new \RuntimeException("SSL is enabled but certificate or key is missing");
+                }
+                
+                $this->logger->info("Creating SSL socket...");
+                
+                // Create SSL context
+                $context = stream_context_create([
+                    'ssl' => [
+                        'local_cert' => $this->config['ssl_cert'],
+                        'local_pk' => $this->config['ssl_key'],
+                        'verify_peer' => false,
+                        'verify_peer_name' => false,
+                        'allow_self_signed' => true
+                    ]
+                ]);
+                
+                // Create the socket
+                $socket = @stream_socket_server(
+                    "ssl://{$this->config['bind_ip']}:{$this->config['port']}", 
+                    $errno, 
+                    $errstr, 
+                    STREAM_SERVER_BIND | STREAM_SERVER_LISTEN,
+                    $context
+                );
+                
+                if (!$socket) {
+                    throw new \RuntimeException("Failed to create SSL socket: {$errno} - {$errstr}");
+                }
+                
+                // Convert to socket resource
+                $this->socket = $socket;
+                
+                // Set socket to non-blocking mode
+                stream_set_blocking($this->socket, false);
+                
+                // Set receive and send timeouts
+                stream_set_timeout($this->socket, 5); // 5 seconds timeout
+                
+                $this->logger->info("SSL Server running on {$this->config['bind_ip']}:{$this->config['port']}");
+            } else {
+                // Create a regular socket (non-SSL)
+                $this->socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
+                if ($this->socket === false) {
+                    $errorCode = socket_last_error();
+                    $errorMsg = socket_strerror($errorCode);
+                    throw new \RuntimeException("Failed to create socket: {$errorCode} - {$errorMsg}");
+                }
+                
+                // Set socket options
+                socket_set_option($this->socket, SOL_SOCKET, SO_REUSEADDR, 1);
+                socket_set_option($this->socket, SOL_SOCKET, SO_RCVTIMEO, ['sec' => 5, 'usec' => 0]); // 5 seconds receive timeout
+                socket_set_option($this->socket, SOL_SOCKET, SO_SNDTIMEO, ['sec' => 5, 'usec' => 0]); // 5 seconds send timeout
+                
+                // Bind socket
+                if (!socket_bind($this->socket, $this->config['bind_ip'], $this->config['port'])) {
+                    $errorCode = socket_last_error();
+                    $errorMsg = socket_strerror($errorCode);
+                    throw new \RuntimeException("Failed to bind socket: {$errorCode} - {$errorMsg}");
+                }
+                
+                // Set socket to listen
+                $maxConnections = isset($this->config['max_users']) && is_numeric($this->config['max_users']) ? (int)$this->config['max_users'] : 50;
+                if (!socket_listen($this->socket, $maxConnections)) {
+                    $errorCode = socket_last_error();
+                    $errorMsg = socket_strerror($errorCode);
+                    throw new \RuntimeException("Failed to set socket to listen: {$errorCode} - {$errorMsg}");
+                }
+                
+                // Set non-blocking mode
+                socket_set_nonblock($this->socket);
+                
+                $this->logger->info("Server running on {$this->config['bind_ip']}:{$this->config['port']}");
+            }
+        } catch (\Exception $e) {
+            $this->logger->error("Socket creation failed: " . $e->getMessage());
+            
+            // Clean up any partially created resources
+            if ($this->socket) {
+                if ($useSSL && is_resource($this->socket)) {
+                    @fclose($this->socket);
+                } elseif (!$useSSL && $this->socket instanceof \Socket) {
+                    @socket_close($this->socket);
+                }
+                $this->socket = null;
+            }
+            
+            // Re-throw the exception
+            throw new \RuntimeException("Failed to create server socket: " . $e->getMessage(), 0, $e);
+        }
+    }
+    
+    /**
+     * The main loop of the server
+     */
+    private function mainLoop(): void {
+        $this->logger->info("Server main loop started");
+        
+        // Set up signal handling for graceful shutdown if running in CLI mode
+        if (function_exists('pcntl_signal')) {
+            // Register signal handlers
+            pcntl_signal(SIGTERM, [$this, 'handleSignal']);
+            pcntl_signal(SIGINT, [$this, 'handleSignal']);
+            pcntl_signal(SIGHUP, [$this, 'handleSignal']);
+        }
+        
+        // Running flag
+        $this->running = true;
+        
+        while ($this->running) {
+            // Handle incoming signals if pcntl is available
+            if (function_exists('pcntl_signal_dispatch')) {
+                pcntl_signal_dispatch();
+            }
+            
+            try {
+                // Accept new connections
+                $this->connectionHandler->acceptNewConnections($this->socket);
+                
+                // Handle existing connections
+                $this->connectionHandler->handleExistingConnections();
+                
+                // Accept new server connections
+                $this->serverLinkHandler->acceptServerConnections($this->socket);
+                
+                // Handle existing server connections
+                $this->serverLinkHandler->handleExistingServerLinks();
+                
+                // Save server state periodically
+                static $lastSaveTime = 0;
+                if (time() - $lastSaveTime > 60) { // Save every 60 seconds
+                    $this->saveState();
+                    $lastSaveTime = time();
+                }
+            } catch (\Exception $e) {
+                $this->logger->error("Error in main loop: " . $e->getMessage());
+                // Continue running despite errors
+            }
+            
+            // Small pause to reduce CPU load
+            usleep(10000); // 10ms
+        }
+        
+        // If we exit the loop, perform cleanup
+        $this->shutdown();
+    }
+    
+    /**
+     * Signal handler for graceful shutdown
+     * 
+     * @param int $signo The signal number
+     */
+    public function handleSignal(int $signo): void {
+        switch ($signo) {
+            case SIGTERM:
+            case SIGINT:
+                $this->logger->info("Received shutdown signal, stopping server...");
+                $this->running = false;
+                break;
+            case SIGHUP:
+                $this->logger->info("Received SIGHUP, reloading configuration...");
+                // Reload configuration (implementation depends on your setup)
+                break;
+            default:
+                // Ignore other signals
+                break;
+        }
+    }
+    
+    /**
+     * Shutdown the server and clean up resources
+     */
+    public function shutdown(): void {
+        $this->logger->info("Server shutting down...");
+        
+        // Notify all users about server shutdown
+        $message = "Server is shutting down. Please reconnect later.";
+        foreach ($this->users as $user) {
+            try {
+                $user->send("ERROR :Server shutting down");
+                $user->disconnect();
+            } catch (\Exception $e) {
+                // Just log, don't throw during shutdown
+                $this->logger->error("Error disconnecting user: " . $e->getMessage());
+            }
+        }
+        
+        // Close all server links
+        foreach ($this->serverLinks as $serverLink) {
+            try {
+                $this->serverLinkHandler->disconnectServer($serverLink, "Server shutting down");
+            } catch (\Exception $e) {
+                $this->logger->error("Error disconnecting server link: " . $e->getMessage());
+            }
+        }
+        
+        // Save server state
+        $this->saveState();
+        
+        // Close the main socket
+        if ($this->socket) {
+            if ($this->config['ssl_enabled'] && is_resource($this->socket)) {
+                @fclose($this->socket);
+            } elseif ($this->socket instanceof \Socket) {
+                @socket_close($this->socket);
+            }
+            $this->socket = null;
+        }
+        
+        $this->logger->info("Server shutdown complete");
+    }
+    
+    /**
      * Start the server
+     * 
+     * @throws \RuntimeException If the server fails to start
      */
     public function start(): void {
         if ($this->isWebMode) {
@@ -84,12 +313,20 @@ class Server {
             return;
         }
         
-        $this->createSocket();
-        
-        // Automatische Server-Verbindungen herstellen
-        $this->establishAutoConnections();
-        
-        $this->mainLoop();
+        try {
+            $this->createSocket();
+            
+            // Setup shutdown function
+            register_shutdown_function([$this, 'shutdown']);
+            
+            // Automatische Server-Verbindungen herstellen
+            $this->establishAutoConnections();
+            
+            $this->mainLoop();
+        } catch (\Exception $e) {
+            $this->logger->error("Failed to start server: " . $e->getMessage());
+            throw new \RuntimeException("Failed to start server: " . $e->getMessage(), 0, $e);
+        }
     }
     
     /**
@@ -129,123 +366,6 @@ class Server {
                     $this->logger->error("Automatische Verbindung zum Server {$serverName} fehlgeschlagen");
                 }
             }
-        }
-    }
-    
-    /**
-     * Create and configure the socket
-     */
-    private function createSocket(): void {
-        $this->logger->info("Creating socket...");
-        
-        // Check if SSL is enabled
-        $useSSL = !empty($this->config['ssl_enabled']) && $this->config['ssl_enabled'] === true;
-        
-        if ($useSSL) {
-            // Create SSL context if SSL is enabled
-            if (empty($this->config['ssl_cert']) || empty($this->config['ssl_key'])) {
-                $this->logger->error("SSL is enabled but certificate or key is missing");
-                die("SSL is enabled but certificate or key is missing");
-            }
-            
-            $this->logger->info("Creating SSL socket...");
-            
-            // Create SSL context
-            $context = stream_context_create([
-                'ssl' => [
-                    'local_cert' => $this->config['ssl_cert'],
-                    'local_pk' => $this->config['ssl_key'],
-                    'verify_peer' => false,
-                    'verify_peer_name' => false,
-                    'allow_self_signed' => true
-                ]
-            ]);
-            
-            // Create the socket
-            $socket = @stream_socket_server(
-                "ssl://{$this->config['bind_ip']}:{$this->config['port']}", 
-                $errno, 
-                $errstr, 
-                STREAM_SERVER_BIND | STREAM_SERVER_LISTEN,
-                $context
-            );
-            
-            if (!$socket) {
-                $this->logger->error("Failed to create SSL socket: {$errno} - {$errstr}");
-                die("Failed to create SSL socket: {$errno} - {$errstr}");
-            }
-            
-            // Convert to socket resource
-            $this->socket = $socket;
-            
-            // Set socket to non-blocking mode
-            stream_set_blocking($this->socket, false);
-            
-            $this->logger->info("SSL Server running on {$this->config['bind_ip']}:{$this->config['port']}");
-        } else {
-            // Create a regular socket (non-SSL)
-            $this->socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
-            if ($this->socket === false) {
-                $errorCode = socket_last_error();
-                $errorMsg = socket_strerror($errorCode);
-                $this->logger->error("Failed to create socket: {$errorCode} - {$errorMsg}");
-                die("Failed to create socket: {$errorCode} - {$errorMsg}");
-            }
-            
-            // Set socket options
-            socket_set_option($this->socket, SOL_SOCKET, SO_REUSEADDR, 1);
-            
-            // Bind socket
-            if (!socket_bind($this->socket, $this->config['bind_ip'], $this->config['port'])) {
-                $errorCode = socket_last_error();
-                $errorMsg = socket_strerror($errorCode);
-                $this->logger->error("Failed to bind socket: {$errorCode} - {$errorMsg}");
-                die("Failed to bind socket: {$errorCode} - {$errorMsg}");
-            }
-            
-            // Set socket to listen
-            if (!socket_listen($this->socket, $this->config['max_users'])) {
-                $errorCode = socket_last_error();
-                $errorMsg = socket_strerror($errorCode);
-                $this->logger->error("Failed to set socket to listen: {$errorCode} - {$errorMsg}");
-                die("Failed to set socket to listen: {$errorCode} - {$errorMsg}");
-            }
-            
-            // Set non-blocking mode
-            socket_set_nonblock($this->socket);
-            
-            $this->logger->info("Server running on {$this->config['bind_ip']}:{$this->config['port']}");
-        }
-    }
-    
-    /**
-     * The main loop of the server
-     */
-    private function mainLoop(): void {
-        $this->logger->info("Server main loop started");
-        
-        while (true) {
-            // Accept new connections
-            $this->connectionHandler->acceptNewConnections($this->socket);
-            
-            // Handle existing connections
-            $this->connectionHandler->handleExistingConnections();
-            
-            // Accept new server connections
-            $this->serverLinkHandler->acceptServerConnections($this->socket);
-            
-            // Handle existing server connections
-            $this->serverLinkHandler->handleExistingServerLinks();
-            
-            // Save server state periodically
-            static $lastSaveTime = 0;
-            if (time() - $lastSaveTime > 60) { // Save every 60 seconds
-                $this->saveState();
-                $lastSaveTime = time();
-            }
-            
-            // Small pause to reduce CPU load
-            usleep(10000); // 10ms
         }
     }
     
