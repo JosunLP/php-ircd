@@ -152,6 +152,20 @@ class ServerLink {
     }
     
     /**
+     * Prüft, ob der Socket noch gültig ist
+     * 
+     * @return bool Ob der Socket gültig ist
+     */
+    public function isSocketValid(): bool {
+        if ($this->isStreamSocket) {
+            return is_resource($this->socket) && !feof($this->socket);
+        } else {
+            // Prüfen, ob der Socket noch eine gültige Socket-Ressource ist
+            return $this->socket instanceof \Socket && @socket_get_option($this->socket, SOL_SOCKET, SO_ERROR) !== false;
+        }
+    }
+    
+    /**
      * Getter und Setter für den Namen des Servers
      */
     public function getName(): string {

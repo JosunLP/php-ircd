@@ -116,6 +116,13 @@ class ServerLinkHandler {
         $currentTime = time();
         
         foreach ($this->links as $key => $serverLink) {
+            // Prüfe zuerst, ob der Socket noch gültig ist
+            if (!$serverLink->isSocketValid()) {
+                $this->disconnectServerLink($serverLink, "Socket ungültig oder Verbindung geschlossen");
+                unset($this->links[$key]);
+                continue;
+            }
+            
             // Check for timeout and disconnect inactive connections
             if ($serverLink->isInactive($this->pingTimeout)) {
                 $this->disconnectServerLink($serverLink, "Ping timeout: {$this->pingTimeout} seconds");

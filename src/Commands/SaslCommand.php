@@ -316,6 +316,13 @@ class SaslCommand extends CommandBase {
         $nick = $user->getNick() ?? '*';
         $userId = spl_object_id($user);
         
+        // Verify that the hash algorithm is supported
+        if (!in_array($hash, ['sha1', 'sha256'])) {
+            $user->send(":{$config['name']} 904 {$nick} :SASL authentication failed: Unsupported hash algorithm");
+            $user->setSaslInProgress(false);
+            return;
+        }
+
         // If SCRAM data doesn't exist for this user, abort
         if (!isset($this->scramData[$userId])) {
             $user->send(":{$config['name']} 904 {$nick} :SASL authentication failed: SCRAM state invalid");
@@ -479,6 +486,14 @@ class SaslCommand extends CommandBase {
             // Complete authentication message
             $messageWithoutProof = preg_replace('/,p=[^,]*$/', '', $decoded);
             $this->scramData[$userId]['auth_message'] .= "," . $messageWithoutProof;
+            
+            // Überprüfen, ob die gespeicherten Hash-Werte vorhanden sind
+            if (!isset($this->scramData[$userId]['stored_key']) || !isset($this->scramData[$userId]['server_key'])) {
+                $user->send(":{$config['name']} 904 {$nick} :SASL authentication failed: User not found or no password");
+                $user->setSaslInProgress(false);
+                unset($this->scramData[$userId]);
+                return;
+            }
             
             // Verify client proof
             $clientSignature = hash_hmac($hash, $this->scramData[$userId]['auth_message'], $this->scramData[$userId]['stored_key'], true);

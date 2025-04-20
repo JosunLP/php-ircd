@@ -237,27 +237,86 @@ class ConnectionHandler {
     
     /**
      * Prüft, ob eine IP-Adresse innerhalb eines CIDR-Bereichs liegt
+     * Unterstützt sowohl IPv4 als auch IPv6
      * 
      * @param string $ip Die zu überprüfende IP-Adresse
-     * @param string $cidr Der CIDR-Bereich (z.B. "192.168.1.0/24")
+     * @param string $cidr Der CIDR-Bereich (z.B. "192.168.1.0/24" oder "2001:db8::/32")
      * @return bool True, wenn die IP im Bereich liegt
      */
     private function isIpInCidrRange(string $ip, string $cidr): bool {
-        list($subnet, $bits) = explode('/', $cidr);
-        
-        // IPv4-Adressen in Binärform umwandeln
-        $ipBinary = ip2long($ip);
-        $subnetBinary = ip2long($subnet);
-        
-        if ($ipBinary === false || $subnetBinary === false) {
+        // CIDR aufteilen in Netzwerk-Teil und Präfix-Länge
+        if (strpos($cidr, '/') === false) {
             return false;
         }
         
-        // Maske aus den Bits erstellen
-        $mask = -1 << (32 - (int)$bits);
+        list($subnet, $bits) = explode('/', $cidr);
+        $bits = (int)$bits;
         
-        // Prüfen, ob die IP im Subnetz liegt
-        return ($ipBinary & $mask) === ($subnetBinary & $mask);
+        // IPv6-Format prüfen
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) && 
+            filter_var($subnet, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+            
+            // Prüfen, ob die Präfix-Länge gültig ist (0-128 für IPv6)
+            if ($bits < 0 || $bits > 128) {
+                return false;
+            }
+            
+            // IPv6-Adresse in binäre Form umwandeln
+            $ipBin = inet_pton($ip);
+            $subnetBin = inet_pton($subnet);
+            
+            if ($ipBin === false || $subnetBin === false) {
+                return false;
+            }
+            
+            // Byteweise vergleichen
+            $ipLen = strlen($ipBin);
+            $fullBytes = (int)($bits / 8);
+            $partialBits = $bits % 8;
+            
+            // Vollständige Bytes vergleichen
+            for ($i = 0; $i < $fullBytes && $i < $ipLen; $i++) {
+                if ($ipBin[$i] !== $subnetBin[$i]) {
+                    return false;
+                }
+            }
+            
+            // Wenn es noch übrige Bits gibt und wir nicht am Ende sind
+            if ($partialBits > 0 && $fullBytes < $ipLen) {
+                $mask = 0xFF & (0xFF << (8 - $partialBits));
+                if (($ipBin[$fullBytes] & chr($mask)) !== ($subnetBin[$fullBytes] & chr($mask))) {
+                    return false;
+                }
+            }
+            
+            return true;
+        } 
+        // IPv4-Format prüfen
+        else if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) && 
+                filter_var($subnet, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+            
+            // Prüfen, ob die Präfix-Länge gültig ist (0-32 für IPv4)
+            if ($bits < 0 || $bits > 32) {
+                return false;
+            }
+            
+            // IPv4-Adressen in Binärform umwandeln
+            $ipBinary = ip2long($ip);
+            $subnetBinary = ip2long($subnet);
+            
+            if ($ipBinary === false || $subnetBinary === false) {
+                return false;
+            }
+            
+            // Maske aus den Bits erstellen
+            $mask = -1 << (32 - $bits);
+            
+            // Prüfen, ob die IP im Subnetz liegt
+            return ($ipBinary & $mask) === ($subnetBinary & $mask);
+        }
+        
+        // Wenn die IP-Adressen weder IPv4 noch IPv6 sind
+        return false;
     }
     
     /**
