@@ -29,6 +29,7 @@ class User {
     private $isRemoteUser = false; // Neu: Flag für Remote-Benutzer
     private $remoteServer = null; // Neu: Name des Remote-Servers
     private $server = null; // Neu: Referenz auf den Server, in dem der Benutzer registriert ist
+    private $undergoing302Negotiation = false; // Flag für IRCv3.2 (302) CAP-Verhandlung
     
     /**
      * Constructor
@@ -171,7 +172,7 @@ class User {
             return is_resource($this->socket) && !feof($this->socket);
         } else {
             // Check if the socket is still a valid socket resource
-            return $this->socket instanceof \Socket && @socket_get_status($this->socket) !== false;
+            return $this->socket instanceof \Socket && @socket_get_option($this->socket, SOL_SOCKET, SO_ERROR) !== false;
         }
     }
     
@@ -906,9 +907,16 @@ class User {
         
         if ($this->isStreamSocket) {
             return stream_get_meta_data($this->socket);
+        } else {
+            // Für normale Sockets gibt es kein direktes Äquivalent zu stream_get_meta_data
+            // Stattdessen geben wir ein minimales Status-Array zurück
+            return [
+                'timed_out' => false,
+                'blocked' => false,
+                'eof' => false,
+                'type' => 'socket'
+            ];
         }
-        
-        return @socket_get_status($this->socket);
     }
     
     /**
@@ -933,5 +941,23 @@ class User {
         } catch (\Exception $e) {
             return false;
         }
+    }
+
+    /**
+     * Setzt den Status der IRCv3.2 CAP-Verhandlung
+     * 
+     * @param bool $isNegotiating Ob die 302-Verhandlung läuft
+     */
+    public function setUndergoing302Negotiation(bool $isNegotiating): void {
+        $this->undergoing302Negotiation = $isNegotiating;
+    }
+    
+    /**
+     * Prüft, ob eine IRCv3.2 CAP-Verhandlung im Gange ist
+     * 
+     * @return bool Ob die 302-Verhandlung läuft
+     */
+    public function isUndergoing302Negotiation(): bool {
+        return $this->undergoing302Negotiation;
     }
 }

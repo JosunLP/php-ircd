@@ -39,7 +39,9 @@ class Server {
         'chathistory' => true,       // Abruf der Kanalhistorie
         'account-notify' => true,    // Kontoauthentifizierungsänderungen
         'account-tag' => true,       // Account-Tags in Nachrichten
-        'cap-notify' => true         // Benachrichtigungen über CAP-Änderungen
+        'cap-notify' => true,        // Benachrichtigungen über CAP-Änderungen
+        'chghost' => true,           // Hostname-Änderungen
+        'sasl' => true               // SASL-Authentifizierung
     ];
     
     /**
@@ -73,6 +75,34 @@ class Server {
         if ($webMode) {
             $this->loadState();
         }
+        
+        // Initialize IRCv3 capabilities
+        $this->initializeCapabilities();
+    }
+    
+    /**
+     * Initialisiere die IRCv3 Capabilities basierend auf der Konfiguration
+     */
+    private function initializeCapabilities(): void {
+        // Wenn cap_enabled nicht aktiviert ist, deaktiviere alle Capabilities
+        if (empty($this->config['cap_enabled'])) {
+            foreach ($this->supportedCapabilities as $cap => $enabled) {
+                $this->supportedCapabilities[$cap] = false;
+            }
+            return;
+        }
+        
+        // Wenn erweiterte IRCv3-Features konfiguriert sind, verwende diese
+        if (isset($this->config['ircv3_features']) && is_array($this->config['ircv3_features'])) {
+            foreach ($this->config['ircv3_features'] as $cap => $enabled) {
+                if (isset($this->supportedCapabilities[$cap])) {
+                    $this->supportedCapabilities[$cap] = (bool)$enabled;
+                }
+            }
+        }
+        
+        // SASL separat behandeln, da es eine eigene Konfigurationsoption hat
+        $this->supportedCapabilities['sasl'] = !empty($this->config['sasl_enabled']);
     }
     
     /**

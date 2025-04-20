@@ -62,10 +62,30 @@ class Config {
         // IRCv3 features
         'cap_enabled' => true,                    // Enable IRCv3 Capability Negotiation
         'sasl_enabled' => true,                   // Enable SASL authentication
-        'sasl_mechanisms' => ['PLAIN', 'EXTERNAL'], // Supported SASL mechanisms
-        'sasl_users' => [                          // SASL user accounts
+        'sasl_mechanisms' => ['PLAIN', 'EXTERNAL', 'SCRAM-SHA-1', 'SCRAM-SHA-256'], // Supported SASL mechanisms
+        'sasl_users' => [                         // SASL user accounts
             // Format: 'id' => ['username' => 'user', 'password' => 'pass']
         ],
+        
+        // IRCv3 erweiterte Features
+        'ircv3_features' => [                      // IRCv3 Feature-Set
+            'multi-prefix' => true,                // Mehrere Präfixe für Benutzer im Kanal
+            'away-notify' => true,                 // Benachrichtigung wenn Benutzer away-Status ändert
+            'server-time' => true,                 // Zeitstempel für Nachrichten
+            'batch' => true,                       // Nachrichtenbündelung
+            'message-tags' => true,                // Tags in Nachrichten
+            'echo-message' => true,                // Echo der eigenen Nachrichten
+            'invite-notify' => true,               // Benachrichtigungen über Einladungen
+            'extended-join' => true,               // Erweiterte JOIN-Befehle mit Realname
+            'userhost-in-names' => true,           // Vollständige Hostmasken in NAMES-Liste
+            'chathistory' => true,                 // Abruf der Kanalhistorie
+            'account-notify' => true,              // Kontoauthentifizierungsänderungen
+            'account-tag' => true,                 // Account-Tags in Nachrichten
+            'cap-notify' => true,                  // Benachrichtigungen über CAP-Änderungen
+            'chghost' => true,                     // Host-Änderungsbenachrichtigungen
+        ],
+        
+        'chathistory_max_messages' => 100,         // Maximale Anzahl von Nachrichten in der Chathistorie
         
         // IP-Filtering-Einstellungen
         'ip_filtering_enabled' => false,          // IP-Filterung aktivieren/deaktivieren

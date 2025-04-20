@@ -67,8 +67,12 @@ class UserCommand extends CommandBase {
         // Zweite Zeile der ISUPPORT-Nachrichten
         $user->send(":{$config['name']} 005 {$nick} CALLERID=g SAFELIST ELIST=U STATUSMSG=@+ CHANNELLEN=32 NICKLEN=30 TOPICLEN=307 KICKLEN=307 AWAYLEN=307 SILENCE=15 :are supported by this server");
         
-        // Dritte Zeile mit zusätzlichen IRCv3-Features
-        $user->send(":{$config['name']} 005 {$nick} CASEMAPPING=rfc1459 CHARSET=ascii MAXTARGETS=4 WATCH=128 NAMESX UHNAMES USERIP WALLCHOPS FNC :are supported by this server");
+        // Dritte Zeile mit zusätzlichen IRCv3-Features und Unterstützung
+        $user->send(":{$config['name']} 005 {$nick} CASEMAPPING=rfc1459 CHARSET=utf-8 MAXTARGETS=4 WATCH=128 NAMESX UHNAMES USERIP WALLCHOPS FNC CHATHISTORY=100 :are supported by this server");
+        
+        // Vierte Zeile für die erweiterten IRCv3 Capabilities
+        $capsSupported = implode(' ', $this->server->getSupportedCapabilities());
+        $user->send(":{$config['name']} 005 {$nick} CAP={$capsSupported} :are supported by this server");
         
         // Statistiken senden
         $userCount = count($this->server->getUsers());

@@ -400,11 +400,11 @@ class SaslCommand extends CommandBase {
             $saltedPassword = null;
             $storedKey = null;
             $serverKey = null;
-            $userId = null;
+            $saslUserId = null;  // Renamed from userId to avoid conflict
             
             foreach ($saslUsers as $id => $userData) {
                 if (isset($userData['username']) && $userData['username'] === $authcid) {
-                    $userId = $id;
+                    $saslUserId = $id;  // Using saslUserId instead of userId
                     // Wenn der Benutzer SCRAM-Daten hat, verwende diese
                     if (isset($userData['scram'][$hash])) {
                         $saltedPassword = $userData['scram'][$hash]['salted_password'] ?? null;
@@ -426,7 +426,7 @@ class SaslCommand extends CommandBase {
             }
             
             // Store for verification
-            $this->scramData[$userId]['user_id'] = $id;
+            $this->scramData[$userId]['sasl_user_id'] = $saslUserId;
             $this->scramData[$userId]['salt'] = $salt;
             $this->scramData[$userId]['iterations'] = $iterations;
             $this->scramData[$userId]['salted_password'] = $saltedPassword;
@@ -488,10 +488,14 @@ class SaslCommand extends CommandBase {
             // Compare computed stored key with actual stored key
             if (!hash_equals($this->scramData[$userId]['stored_key'], $computedStoredKey)) {
                 $user->send(":{$config['name']} 904 {$nick} :SASL authentication failed: Invalid credentials");
+                
+                // Sichere Speicherung des Benutzernamens für die Protokollierung
+                $username = $this->scramData[$userId]['username'] ?? 'unknown';
+                $this->server->getLogger()->warning("Failed SCRAM SASL authentication attempt for user {$username} from IP: {$ip}");
+                
+                // Ressourcen aufräumen
                 $user->setSaslInProgress(false);
                 unset($this->scramData[$userId]);
-                
-                $this->server->getLogger()->warning("Failed SCRAM SASL authentication attempt for user {$this->scramData[$userId]['username']} from IP: {$ip}");
                 return;
             }
             
@@ -510,7 +514,7 @@ class SaslCommand extends CommandBase {
             $user->setMode('r', true); // Set registered user mode
             
             // Check if this user should be an operator
-            $saslUserId = $this->scramData[$userId]['user_id'] ?? null;
+            $saslUserId = $this->scramData[$userId]['sasl_user_id'] ?? null;
             if ($saslUserId !== null && 
                 isset($config['sasl_users'][$saslUserId]) && 
                 isset($config['sasl_users'][$saslUserId]['oper']) && 

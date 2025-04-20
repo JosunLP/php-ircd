@@ -7,20 +7,21 @@ use PhpIrcd\Models\User;
 class CapCommand extends CommandBase {
     // Liste der unterstützten Capabilities
     private $supportedCapabilities = [
-        'sasl',                  // SASL-Authentifizierung
-        'multi-prefix',          // Mehrere Statuszeichen bei Benutzer in Kanälen
-        'away-notify',           // Benachrichtigungen über Away-Status-Änderungen
-        'extended-join',         // Erweitertes JOIN-Format mit Account und Realname
-        'account-notify',        // Benachrichtigungen über Account-Änderungen
-        'tls',                   // TLS-Unterstützung
-        'server-time',           // Server-Zeitstempel für Nachrichten
-        'batch',                 // Nachrichten-Batching
-        'echo-message',          // Client erhält eigene Nachrichten zurück
-        'cap-notify',            // Benachrichtigungen über Capability-Änderungen
-        'invite-notify',         // Benachrichtigungen über Einladungen
-        'chghost',               // Hostname-Änderungen
-        'message-tags',          // Nachrichtenmarkierungen für Client-only Metadaten
-        'userhost-in-names'      // Hostname in NAMES-Listen
+        'multi-prefix' => true,      // Mehrere Präfixe für Benutzer im Kanal
+        'away-notify' => true,       // Benachrichtigung wenn Benutzer away-Status ändert
+        'server-time' => true,       // Zeitstempel für Nachrichten
+        'batch' => true,             // Nachrichtenbündelung
+        'message-tags' => true,      // Tags in Nachrichten
+        'echo-message' => true,      // Echo der eigenen Nachrichten
+        'invite-notify' => true,     // Benachrichtigungen über Einladungen
+        'extended-join' => true,     // Erweiterte JOIN-Befehle mit Realname
+        'userhost-in-names' => true, // Vollständige Hostmasken in NAMES-Liste
+        'chathistory' => true,       // Abruf der Kanalhistorie
+        'account-notify' => true,    // Kontoauthentifizierungsänderungen
+        'account-tag' => true,       // Account-Tags in Nachrichten
+        'cap-notify' => true,        // Benachrichtigungen über CAP-Änderungen
+        'chghost' => true,           // Host-Änderungsbenachrichtigungen
+        'sasl' => true               // SASL-Authentifizierung
     ];
     
     /**
@@ -54,22 +55,23 @@ class CapCommand extends CommandBase {
                 }
                 
                 // Capabilities mit Werten (für IRCv3.2+)
-                $capabilitiesWithValues = [
-                    'sasl' => 'PLAIN,EXTERNAL',
-                    'server-time' => '',
-                    'batch' => '',
-                    'echo-message' => '',
-                    'cap-notify' => '',
-                    'invite-notify' => '',
-                    'chghost' => '',
-                    'message-tags' => '',
-                    'multi-prefix' => '',
-                    'away-notify' => '',
-                    'extended-join' => '',
-                    'account-notify' => '',
-                    'tls' => '',
-                    'userhost-in-names' => ''
-                ];
+                $capabilitiesWithValues = [];
+                
+                // Füge nur unterstützte Capabilities hinzu
+                $supportedCaps = $this->server->getSupportedCapabilities();
+                foreach ($supportedCaps as $cap) {
+                    switch ($cap) {
+                        case 'sasl':
+                            // Hole unterstützte Mechanismen aus der Konfiguration
+                            $mechanisms = $config['sasl_mechanisms'] ?? ['PLAIN', 'EXTERNAL'];
+                            $capabilitiesWithValues[$cap] = implode(',', $mechanisms);
+                            break;
+                        default:
+                            // Für andere Capabilities keinen Wert angeben
+                            $capabilitiesWithValues[$cap] = '';
+                            break;
+                    }
+                }
                 
                 // Formatierte Capabilities ausgeben
                 $formattedCaps = [];
@@ -101,7 +103,7 @@ class CapCommand extends CommandBase {
                     $requestedCaps = explode(' ', $args[2]);
                     
                     // Check if all requested capabilities are supported
-                    $unsupportedCaps = array_diff($requestedCaps, $this->supportedCapabilities);
+                    $unsupportedCaps = array_diff($requestedCaps, $this->server->getSupportedCapabilities());
                     
                     if (empty($unsupportedCaps)) {
                         // All requested capabilities are supported
@@ -111,9 +113,15 @@ class CapCommand extends CommandBase {
                         
                         $user->send(":{$config['name']} CAP {$nick} ACK :{$args[2]}");
                         
-                        // If SASL requested, inform client
+                        // If SASL requested, inform client and set the flag
                         if (in_array('sasl', $requestedCaps)) {
                             $this->server->getLogger()->info("User {$nick} ({$user->getIp()}) requested SASL authentication");
+                            
+                            // Markiere, dass SASL-Authentifizierung möglich ist
+                            if (!$user->isSaslAuthenticated()) {
+                                // Der User kann nun AUTHENTICATE verwenden
+                                $user->setUndergoing302Negotiation(true);
+                            }
                         }
                     } else {
                         // Some capabilities are not supported
@@ -168,8 +176,7 @@ class CapCommand extends CommandBase {
         $currentBlock = '';
         
         foreach ($capabilities as $cap) {
-            // Prüfen, ob das Hinzufügen dieser Capability den Block zu lang macht
-            if (strlen($currentBlock) + strlen($cap) + 1 > 400) { // +1 für das Leerzeichen
+            if (strlen($currentBlock . ' ' . $cap) > 400) {
                 $blocks[] = trim($currentBlock);
                 $currentBlock = $cap;
             } else {
@@ -177,7 +184,6 @@ class CapCommand extends CommandBase {
             }
         }
         
-        // Den letzten Block hinzufügen, wenn er nicht leer ist
         if (!empty($currentBlock)) {
             $blocks[] = trim($currentBlock);
         }
