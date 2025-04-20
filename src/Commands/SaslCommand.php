@@ -5,6 +5,9 @@ namespace PhpIrcd\Commands;
 use PhpIrcd\Models\User;
 
 class SaslCommand extends CommandBase {
+    // Speichert temporäre SCRAM-Daten für Benutzer während der Authentifizierung
+    private $scramData = [];
+    
     /**
      * Executes the SASL / AUTHENTICATE command
      * According to IRCv3 specifications
@@ -77,9 +80,10 @@ class SaslCommand extends CommandBase {
         }
         
         $param = $args[1];
+        $userId = spl_object_id($user); // Eindeutige ID für den Benutzer
         
         // Initialization of SASL authentication
-        if (strtoupper($param) === 'PLAIN' || strtoupper($param) === 'EXTERNAL') {
+        if (in_array(strtoupper($param), ['PLAIN', 'EXTERNAL', 'SCRAM-SHA-1', 'SCRAM-SHA-256'])) {
             // Validate mechanism against supported list
             $mechanisms = $config['sasl_mechanisms'] ?? ['PLAIN'];
             if (!in_array(strtoupper($param), array_map('strtoupper', $mechanisms))) {
@@ -90,6 +94,16 @@ class SaslCommand extends CommandBase {
             
             // Store mechanism and prompt client to continue
             $user->setSaslMechanism(strtoupper($param));
+            
+            // Initialize SCRAM data if using SCRAM
+            if (strpos(strtoupper($param), 'SCRAM-') === 0) {
+                $this->scramData[$userId] = [
+                    'state' => 'init',
+                    'mechanism' => strtoupper($param),
+                    'nonce' => $this->generateNonce(32)
+                ];
+            }
+            
             $user->send("AUTHENTICATE +");
         } 
         // Processing of SASL authentication data
@@ -101,7 +115,15 @@ class SaslCommand extends CommandBase {
         else if ($user->getSaslMechanism() === 'EXTERNAL') {
             // Process EXTERNAL authentication
             $this->handleExternalAuthentication($user, $param);
-        } 
+        }
+        // Processing of SCRAM-SHA-1 authentication
+        else if ($user->getSaslMechanism() === 'SCRAM-SHA-1') {
+            $this->handleScramAuthentication($user, $param, 'sha1');
+        }
+        // Processing of SCRAM-SHA-256 authentication
+        else if ($user->getSaslMechanism() === 'SCRAM-SHA-256') {
+            $this->handleScramAuthentication($user, $param, 'sha256');
+        }
         // Unknown or unsupported mechanism
         else {
             $user->send(":{$config['name']} 904 {$nick} :SASL authentication failed: Mechanism not supported");
@@ -283,28 +305,246 @@ class SaslCommand extends CommandBase {
     }
     
     /**
-     * Helper method to safely check credentials with constant-time comparison
+     * Processes SCRAM authentication (SHA-1 or SHA-256)
      * 
-     * @param string $stored The stored password or hash
-     * @param string $provided The provided password
-     * @return bool Whether the passwords match
+     * @param User $user The executing user
+     * @param string $data The Base64-encoded authentication data
+     * @param string $hash Der zu verwendende Hash-Algorithmus ('sha1' oder 'sha256')
      */
-    private function safeStringCompare(string $stored, string $provided): bool {
-        // Use hash_equals for constant-time comparison to prevent timing attacks
-        if (function_exists('hash_equals')) {
-            return hash_equals($stored, $provided);
+    private function handleScramAuthentication(User $user, string $data, string $hash): void {
+        $config = $this->server->getConfig();
+        $nick = $user->getNick() ?? '*';
+        $userId = spl_object_id($user);
+        
+        // If SCRAM data doesn't exist for this user, abort
+        if (!isset($this->scramData[$userId])) {
+            $user->send(":{$config['name']} 904 {$nick} :SASL authentication failed: SCRAM state invalid");
+            $user->setSaslInProgress(false);
+            return;
         }
         
-        // Fallback for older PHP versions (< 5.6)
-        if (strlen($stored) !== strlen($provided)) {
-            return false;
+        // If + is received and we're still in init state, abort - we expected data
+        if ($data === '+' && $this->scramData[$userId]['state'] === 'init') {
+            $user->send(":{$config['name']} 904 {$nick} :SASL authentication failed: Expected client-first-message");
+            $user->setSaslInProgress(false);
+            unset($this->scramData[$userId]);
+            return;
         }
         
-        $result = 0;
-        for ($i = 0; $i < strlen($stored); $i++) {
-            $result |= ord($stored[$i]) ^ ord($provided[$i]);
+        // Rate limit authentication attempts to prevent brute force attacks
+        static $authAttempts = [];
+        $ip = $user->getIp();
+        
+        if (!isset($authAttempts[$ip])) {
+            $authAttempts[$ip] = ['count' => 0, 'timestamp' => time()];
         }
         
-        return $result === 0;
+        // Reset counter after 10 minutes
+        if (time() - $authAttempts[$ip]['timestamp'] > 600) {
+            $authAttempts[$ip] = ['count' => 0, 'timestamp' => time()];
+        }
+        
+        // Client-first-message state
+        if ($this->scramData[$userId]['state'] === 'init') {
+            // Decode data
+            $decoded = base64_decode($data);
+            if ($decoded === false) {
+                $user->send(":{$config['name']} 904 {$nick} :SASL authentication failed: Invalid encoding");
+                $user->setSaslInProgress(false);
+                unset($this->scramData[$userId]);
+                return;
+            }
+            
+            // Parse client-first-message
+            // Format: n,a=authzid,n=authcid,r=cnonce
+            if (!preg_match('/^n,(?:a=([^,]*),)?n=([^,]*),r=([^,]*)(?:,.+)?$/', $decoded, $matches)) {
+                $user->send(":{$config['name']} 904 {$nick} :SASL authentication failed: Invalid client-first-message format");
+                $user->setSaslInProgress(false);
+                unset($this->scramData[$userId]);
+                return;
+            }
+            
+            $authzid = isset($matches[1]) ? $matches[1] : '';
+            $authcid = $matches[2];
+            $clientNonce = $matches[3];
+            
+            // Check if username is valid
+            if (empty($authcid)) {
+                $user->send(":{$config['name']} 904 {$nick} :SASL authentication failed: Invalid username");
+                $user->setSaslInProgress(false);
+                unset($this->scramData[$userId]);
+                return;
+            }
+            
+            // Check if client nonce is valid
+            if (empty($clientNonce) || strlen($clientNonce) < 8) {
+                $user->send(":{$config['name']} 904 {$nick} :SASL authentication failed: Invalid client nonce");
+                $user->setSaslInProgress(false);
+                unset($this->scramData[$userId]);
+                return;
+            }
+            
+            // Store authentication data
+            $this->scramData[$userId]['username'] = $authcid;
+            $this->scramData[$userId]['auth_message'] = "n=". $authcid . ",r=" . $clientNonce;
+            $this->scramData[$userId]['client_nonce'] = $clientNonce;
+            $this->scramData[$userId]['state'] = 'challenge';
+            
+            // Create server-first-message
+            $combinedNonce = $clientNonce . $this->scramData[$userId]['nonce'];
+            $salt = random_bytes(16);
+            $iterations = 4096;
+            
+            // Find user credentials
+            $saslUsers = $config['sasl_users'] ?? [];
+            $saltedPassword = null;
+            $storedKey = null;
+            $serverKey = null;
+            $userId = null;
+            
+            foreach ($saslUsers as $id => $userData) {
+                if (isset($userData['username']) && $userData['username'] === $authcid) {
+                    $userId = $id;
+                    // Wenn der Benutzer SCRAM-Daten hat, verwende diese
+                    if (isset($userData['scram'][$hash])) {
+                        $saltedPassword = $userData['scram'][$hash]['salted_password'] ?? null;
+                        $storedKey = $userData['scram'][$hash]['stored_key'] ?? null;
+                        $serverKey = $userData['scram'][$hash]['server_key'] ?? null;
+                        $salt = $userData['scram'][$hash]['salt'] ?? $salt;
+                        $iterations = $userData['scram'][$hash]['iterations'] ?? $iterations;
+                    }
+                    // Sonst berechne aus dem Passwort neue SCRAM-Daten
+                    else if (isset($userData['password'])) {
+                        $password = $userData['password'];
+                        $saltedPassword = hash_pbkdf2($hash, $password, $salt, $iterations, 0, true);
+                        $clientKey = hash_hmac($hash, "Client Key", $saltedPassword, true);
+                        $storedKey = hash($hash, $clientKey, true);
+                        $serverKey = hash_hmac($hash, "Server Key", $saltedPassword, true);
+                    }
+                    break;
+                }
+            }
+            
+            // Store for verification
+            $this->scramData[$userId]['user_id'] = $id;
+            $this->scramData[$userId]['salt'] = $salt;
+            $this->scramData[$userId]['iterations'] = $iterations;
+            $this->scramData[$userId]['salted_password'] = $saltedPassword;
+            $this->scramData[$userId]['stored_key'] = $storedKey;
+            $this->scramData[$userId]['server_key'] = $serverKey;
+            $this->scramData[$userId]['combined_nonce'] = $combinedNonce;
+            
+            // Create server-first-message: r=combined_nonce,s=salt,i=iterations
+            $message = "r=" . $combinedNonce . ",s=" . base64_encode($salt) . ",i=" . $iterations;
+            $this->scramData[$userId]['auth_message'] .= "," . $message;
+            
+            // Send challenge to client
+            $challenge = base64_encode($message);
+            $user->send("AUTHENTICATE " . $challenge);
+            
+            $authAttempts[$ip]['count']++;
+        }
+        // Client-final-message state
+        else if ($this->scramData[$userId]['state'] === 'challenge') {
+            // Decode data
+            $decoded = base64_decode($data);
+            if ($decoded === false) {
+                $user->send(":{$config['name']} 904 {$nick} :SASL authentication failed: Invalid encoding");
+                $user->setSaslInProgress(false);
+                unset($this->scramData[$userId]);
+                return;
+            }
+            
+            // Parse client-final-message
+            // Format: c=biws,r=combined_nonce,p=client_proof
+            if (!preg_match('/^c=([^,]*),r=([^,]*),(?:.+,)*p=([^,]*)(?:,.+)?$/', $decoded, $matches)) {
+                $user->send(":{$config['name']} 904 {$nick} :SASL authentication failed: Invalid client-final-message format");
+                $user->setSaslInProgress(false);
+                unset($this->scramData[$userId]);
+                return;
+            }
+            
+            $channelBinding = $matches[1];
+            $receivedNonce = $matches[2];
+            $clientProof = base64_decode($matches[3]);
+            
+            // Verify combined nonce
+            if ($receivedNonce !== $this->scramData[$userId]['combined_nonce']) {
+                $user->send(":{$config['name']} 904 {$nick} :SASL authentication failed: Invalid nonce");
+                $user->setSaslInProgress(false);
+                unset($this->scramData[$userId]);
+                return;
+            }
+            
+            // Complete authentication message
+            $messageWithoutProof = preg_replace('/,p=[^,]*$/', '', $decoded);
+            $this->scramData[$userId]['auth_message'] .= "," . $messageWithoutProof;
+            
+            // Verify client proof
+            $clientSignature = hash_hmac($hash, $this->scramData[$userId]['auth_message'], $this->scramData[$userId]['stored_key'], true);
+            $clientKey = $clientProof ^ $clientSignature;
+            $computedStoredKey = hash($hash, $clientKey, true);
+            
+            // Compare computed stored key with actual stored key
+            if (!hash_equals($this->scramData[$userId]['stored_key'], $computedStoredKey)) {
+                $user->send(":{$config['name']} 904 {$nick} :SASL authentication failed: Invalid credentials");
+                $user->setSaslInProgress(false);
+                unset($this->scramData[$userId]);
+                
+                $this->server->getLogger()->warning("Failed SCRAM SASL authentication attempt for user {$this->scramData[$userId]['username']} from IP: {$ip}");
+                return;
+            }
+            
+            // Authentication successful, compute server signature
+            $serverSignature = hash_hmac($hash, $this->scramData[$userId]['auth_message'], $this->scramData[$userId]['server_key'], true);
+            $serverFinal = "v=" . base64_encode($serverSignature);
+            
+            // Send server final message
+            $response = base64_encode($serverFinal);
+            $user->send("AUTHENTICATE " . $response);
+            
+            // Complete authentication
+            $user->send(":{$config['name']} 903 {$nick} :SASL authentication successful");
+            $user->setSaslAuthenticated(true);
+            $user->setSaslInProgress(false);
+            $user->setMode('r', true); // Set registered user mode
+            
+            // Check if this user should be an operator
+            $saslUserId = $this->scramData[$userId]['user_id'] ?? null;
+            if ($saslUserId !== null && 
+                isset($config['sasl_users'][$saslUserId]) && 
+                isset($config['sasl_users'][$saslUserId]['oper']) && 
+                $config['sasl_users'][$saslUserId]['oper'] === true) {
+                
+                $user->setOper(true);
+                $user->setMode('o', true);
+            }
+            
+            $this->server->getLogger()->info("User {$nick} successfully completed SCRAM-{$hash} authentication");
+            
+            // Clean up
+            unset($this->scramData[$userId]);
+        }
+    }
+    
+    /**
+     * Generates a secure random nonce
+     * 
+     * @param int $length Length of the nonce
+     * @return string The generated nonce
+     */
+    private function generateNonce(int $length = 32): string {
+        if (function_exists('random_bytes')) {
+            return bin2hex(random_bytes($length / 2));
+        } else if (function_exists('openssl_random_pseudo_bytes')) {
+            return bin2hex(openssl_random_pseudo_bytes($length / 2));
+        } else {
+            $chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+            $result = '';
+            for ($i = 0; $i < $length; $i++) {
+                $result .= $chars[mt_rand(0, strlen($chars) - 1)];
+            }
+            return $result;
+        }
     }
 }

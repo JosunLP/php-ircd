@@ -67,6 +67,12 @@ class Config {
             // Format: 'id' => ['username' => 'user', 'password' => 'pass']
         ],
         
+        // IP-Filtering-Einstellungen
+        'ip_filtering_enabled' => false,          // IP-Filterung aktivieren/deaktivieren
+        'ip_whitelist' => [],                     // Whitelist von erlaubten IP-Adressen
+        'ip_blacklist' => [],                     // Blacklist von verbotenen IP-Adressen
+        'ip_filter_mode' => 'blacklist',          // Filtermodus: 'blacklist' oder 'whitelist'
+        
         // Advanced features
         'cloak_hostnames' => true,                // Cloak hostnames
         'max_watch_entries' => 128,               // Maximum number of WATCH entries

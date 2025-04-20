@@ -104,6 +104,14 @@ class ConnectionHandler {
                     $peerName = stream_socket_get_name($newSocket, true);
                     $ip = parse_url($peerName, PHP_URL_HOST) ?: explode(':', $peerName)[0];
                     
+                    // Prüfen, ob die IP-Adresse zugreifen darf
+                    if (!$this->isIpAllowed($ip)) {
+                        $this->server->getLogger()->info("Verbindung von blockierter IP abgelehnt: {$ip}");
+                        fwrite($newSocket, "ERROR :Your IP address is not allowed to connect to this server\r\n");
+                        fclose($newSocket);
+                        return;
+                    }
+                    
                     // Create a new user
                     $user = new User($newSocket, $ip, true); // Pass true to indicate it's a stream socket
                     
@@ -124,6 +132,14 @@ class ConnectionHandler {
                     // Determine the IP address of the new user
                     socket_getpeername($newSocket, $ip);
                     
+                    // Prüfen, ob die IP-Adresse zugreifen darf
+                    if (!$this->isIpAllowed($ip)) {
+                        $this->server->getLogger()->info("Verbindung von blockierter IP abgelehnt: {$ip}");
+                        socket_write($newSocket, "ERROR :Your IP address is not allowed to connect to this server\r\n");
+                        socket_close($newSocket);
+                        return;
+                    }
+                    
                     // Create a new user
                     $user = new User($newSocket, $ip);
                     
@@ -137,6 +153,111 @@ class ConnectionHandler {
                 }
             }
         }
+    }
+    
+    /**
+     * Prüft, ob eine IP-Adresse erlaubt ist
+     * 
+     * @param string $ip Die zu überprüfende IP-Adresse
+     * @return bool True, wenn die IP-Adresse erlaubt ist
+     */
+    private function isIpAllowed(string $ip): bool {
+        $config = $this->server->getConfig();
+        
+        // IP-Filterung deaktiviert, alle IPs erlauben
+        if (!isset($config['ip_filtering_enabled']) || $config['ip_filtering_enabled'] !== true) {
+            return true;
+        }
+        
+        $mode = $config['ip_filter_mode'] ?? 'blacklist';
+        
+        // Blacklist-Modus: Prüfen, ob die IP in der Blacklist steht
+        if ($mode === 'blacklist') {
+            $blacklist = $config['ip_blacklist'] ?? [];
+            
+            foreach ($blacklist as $blockedIp) {
+                // Exakte IP-Übereinstimmung
+                if ($blockedIp === $ip) {
+                    return false;
+                }
+                
+                // CIDR-Notation überprüfen (z.B. 192.168.1.0/24)
+                if (strpos($blockedIp, '/') !== false) {
+                    if ($this->isIpInCidrRange($ip, $blockedIp)) {
+                        return false;
+                    }
+                }
+                
+                // Wildcard-Notation überprüfen (z.B. 192.168.1.*)
+                if (strpos($blockedIp, '*') !== false) {
+                    $pattern = '/^' . str_replace(['.', '*'], ['\.', '.*'], $blockedIp) . '$/i';
+                    if (preg_match($pattern, $ip)) {
+                        return false;
+                    }
+                }
+            }
+            
+            // IP ist nicht in der Blacklist
+            return true;
+        }
+        
+        // Whitelist-Modus: Prüfen, ob die IP in der Whitelist steht
+        $whitelist = $config['ip_whitelist'] ?? [];
+        
+        // Keine Einträge in der Whitelist bedeutet, dass keine IP erlaubt ist
+        if (empty($whitelist)) {
+            return false;
+        }
+        
+        foreach ($whitelist as $allowedIp) {
+            // Exakte IP-Übereinstimmung
+            if ($allowedIp === $ip) {
+                return true;
+            }
+            
+            // CIDR-Notation überprüfen
+            if (strpos($allowedIp, '/') !== false) {
+                if ($this->isIpInCidrRange($ip, $allowedIp)) {
+                    return true;
+                }
+            }
+            
+            // Wildcard-Notation überprüfen
+            if (strpos($allowedIp, '*') !== false) {
+                $pattern = '/^' . str_replace(['.', '*'], ['\.', '.*'], $allowedIp) . '$/i';
+                if (preg_match($pattern, $ip)) {
+                    return true;
+                }
+            }
+        }
+        
+        // IP ist nicht in der Whitelist
+        return false;
+    }
+    
+    /**
+     * Prüft, ob eine IP-Adresse innerhalb eines CIDR-Bereichs liegt
+     * 
+     * @param string $ip Die zu überprüfende IP-Adresse
+     * @param string $cidr Der CIDR-Bereich (z.B. "192.168.1.0/24")
+     * @return bool True, wenn die IP im Bereich liegt
+     */
+    private function isIpInCidrRange(string $ip, string $cidr): bool {
+        list($subnet, $bits) = explode('/', $cidr);
+        
+        // IPv4-Adressen in Binärform umwandeln
+        $ipBinary = ip2long($ip);
+        $subnetBinary = ip2long($subnet);
+        
+        if ($ipBinary === false || $subnetBinary === false) {
+            return false;
+        }
+        
+        // Maske aus den Bits erstellen
+        $mask = -1 << (32 - (int)$bits);
+        
+        // Prüfen, ob die IP im Subnetz liegt
+        return ($ipBinary & $mask) === ($subnetBinary & $mask);
     }
     
     /**
