@@ -19,10 +19,16 @@ class WebInterface {
     /**
      * Constructor
      * 
-     * @param Config $config The configuration
+     * @param Config|array $config The configuration
      */
     public function __construct($config) {
-        $this->config = $config;
+        if ($config instanceof Config) {
+            $this->config = $config;
+        } else if (is_array($config)) {
+            $this->config = new Config(null, $config);
+        } else {
+            throw new \InvalidArgumentException("Config must be an instance of Config or an array");
+        }
         $this->logger = new Logger();
         $this->serverSocketFile = sys_get_temp_dir() . '/php-ircd-socket.sock';
     }

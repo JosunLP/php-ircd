@@ -175,6 +175,11 @@ class ConnectionHandler {
         if ($mode === 'blacklist') {
             $blacklist = $config['ip_blacklist'] ?? [];
             
+            // Leere Blacklist - alles erlauben
+            if (empty($blacklist)) {
+                return true;
+            }
+            
             foreach ($blacklist as $blockedIp) {
                 // Exakte IP-Übereinstimmung
                 if ($blockedIp === $ip) {
@@ -204,8 +209,9 @@ class ConnectionHandler {
         // Whitelist-Modus: Prüfen, ob die IP in der Whitelist steht
         $whitelist = $config['ip_whitelist'] ?? [];
         
-        // Keine Einträge in der Whitelist bedeutet, dass keine IP erlaubt ist
+        // Leere Whitelist - nichts erlauben
         if (empty($whitelist)) {
+            $this->server->getLogger()->warning("Whitelist ist leer. Alle Verbindungen werden abgelehnt.");
             return false;
         }
         

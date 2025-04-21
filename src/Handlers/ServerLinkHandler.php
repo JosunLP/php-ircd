@@ -1156,12 +1156,34 @@ class ServerLinkHandler {
      * @param ServerLink $serverLink The server link to disconnect
      * @param string $reason The reason for disconnection
      */
-    private function disconnectServerLink(ServerLink $serverLink, string $reason): void {
-        // Create log entry
-        $this->server->getLogger()->info("Server link to {$serverLink->getName()} disconnected: {$reason}");
+    public function disconnectServerLink(ServerLink $serverLink, string $reason = "Server disconnected"): void {
+        // Rechtmäßige Abmeldung versuchen
+        try {
+            // SQUIT-Nachricht senden, um die Verbindung zu beenden
+            $config = $this->server->getConfig();
+            $serverLink->send("SQUIT {$config['name']} :{$reason}");
+            
+            // Kurz warten, damit die Nachricht gesendet wird
+            usleep(100000); // 100ms
+        } catch (\Exception $e) {
+            $this->server->getLogger()->warning("Error sending SQUIT to server: " . $e->getMessage());
+        }
         
-        // Close connection
+        // Socket schließen
         $serverLink->disconnect();
+        
+        // Entfernen aller Remote-Benutzer, die über diesen Server verbunden sind
+        foreach ($this->server->getUsers() as $user) {
+            if ($user->isRemoteUser() && $user->getRemoteServer() === $serverLink->getName()) {
+                // Informiere alle lokalen Benutzer über das Verschwinden dieses Remote-Benutzers
+                $this->server->getConnectionHandler()->disconnectUser($user, "Remote server disconnected: {$reason}");
+            }
+        }
+        
+        // Server-Verbindung aus der Liste entfernen
+        $this->server->removeServerLink($serverLink);
+        
+        $this->server->getLogger()->info("Server link disconnected: {$serverLink->getName()} ({$reason})");
     }
     
     /**

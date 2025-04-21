@@ -181,26 +181,6 @@ class JoinCommand extends CommandBase {
      * @return bool Whether the channel name is valid
      */
     private function validateChannelName(string $channelName): bool {
-        // Channel name must start with #, &, + or ! (We support only # for simplicity)
-        // Must be between 2-50 characters
-        // Cannot contain spaces, commas, control characters, or other special characters
-        if (strlen($channelName) < 2 || strlen($channelName) > 50) {
-            return false;
-        }
-        
-        // Check first character - must be #
-        if ($channelName[0] !== '#') {
-            return false;
-        }
-        
-        // Check for invalid characters
-        $invalidChars = [' ', ',', "\x07", "\x00", "\r", "\n", "\t", "\v", "\f"];
-        foreach ($invalidChars as $char) {
-            if (strpos($channelName, $char) !== false) {
-                return false;
-            }
-        }
-        
-        return true;
+        return Channel::isValidChannelName($channelName);
     }
 }

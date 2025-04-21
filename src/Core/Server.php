@@ -118,9 +118,22 @@ class Server {
         
         try {
             if ($useSSL) {
-                // Create SSL context if SSL is enabled
+                // Überprüfen, ob die OpenSSL-Erweiterung geladen ist
+                if (!extension_loaded('openssl')) {
+                    throw new \RuntimeException("OpenSSL extension is required for SSL support but not loaded.");
+                }
+                
+                // Überprüfen, ob Zertifikat und Schlüssel existieren
                 if (empty($this->config['ssl_cert']) || empty($this->config['ssl_key'])) {
                     throw new \RuntimeException("SSL is enabled but certificate or key is missing");
+                }
+                
+                // Überprüfen, ob Zertifikat und Schlüssel existieren
+                if (!file_exists($this->config['ssl_cert'])) {
+                    throw new \RuntimeException("SSL certificate file not found: " . $this->config['ssl_cert']);
+                }
+                if (!file_exists($this->config['ssl_key'])) {
+                    throw new \RuntimeException("SSL key file not found: " . $this->config['ssl_key']);
                 }
                 
                 $this->logger->info("Creating SSL socket...");
