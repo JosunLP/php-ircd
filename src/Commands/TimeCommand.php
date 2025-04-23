@@ -53,13 +53,13 @@ class TimeCommand extends CommandBase {
         
         $result = [];
         if ($days > 0) {
-            $result[] = $days . ' Tag' . ($days > 1 ? 'e' : '');
+            $result[] = $days . ' Tag' . ($days != 1 ? 'e' : '');
         }
         if ($hours > 0) {
-            $result[] = $hours . ' Stunde' . ($hours > 1 ? 'n' : '');
+            $result[] = $hours . ' Stunde' . ($hours != 1 ? 'n' : '');
         }
         if ($minutes > 0) {
-            $result[] = $minutes . ' Minute' . ($minutes > 1 ? 'n' : '');
+            $result[] = $minutes . ' Minute' . ($minutes != 1 ? 'n' : '');
         }
         if ($seconds > 0 || count($result) === 0) {
             $result[] = $seconds . ' Sekunde' . ($seconds != 1 ? 'n' : '');
