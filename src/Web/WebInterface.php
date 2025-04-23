@@ -633,7 +633,7 @@ class WebInterface {
                 if ($target === $_SESSION['irc_nickname'] || 
                     (isset($_SESSION['irc_current_channel']) && $target === $_SESSION['irc_current_channel'])) {
                     $messages[] = [
-                        'text' => "{$sender}: {$text}",
+                        'text' => $this->detectUrls("{$sender}: {$text}"),
                         'type' => 'user'
                     ];
                 }
@@ -968,6 +968,41 @@ class WebInterface {
         } catch (Exception $e) {
             $this->logger->error("Error getting server uptime: " . $e->getMessage());
             return 0;
+        }
+    }
+    
+    /**
+     * Erkennt URLs in einer Nachricht und wandelt sie in HTML-Links um
+     * 
+     * @param string $message Die zu verarbeitende Nachricht
+     * @return string Die Nachricht mit HTML-Links
+     */
+    private function detectUrls(string $message): string {
+        // Verbesserte URL-Erkennung mit robuster Fehlerbehandlung
+        try {
+            $pattern = '/(https?:\/\/[^\s<>"\']+|www\.[^\s<>"\']+)/';
+            
+            return preg_replace_callback($pattern, function($matches) {
+                $url = $matches[0];
+                $displayUrl = htmlspecialchars($url);
+                
+                // Stelle sicher, dass die URL mit http:// oder https:// beginnt
+                $href = $url;
+                if (strpos($url, 'http') !== 0) {
+                    $href = 'http://' . $url;
+                }
+                
+                // Begrenzen der Anzeige-URL-Länge für bessere Darstellung
+                if (strlen($displayUrl) > 50) {
+                    $displayUrl = substr($displayUrl, 0, 47) . '...';
+                }
+                
+                return '<a href="' . htmlspecialchars($href) . '" target="_blank" rel="noopener">' . 
+                       $displayUrl . '</a>';
+            }, $message);
+        } catch (\Exception $e) {
+            // Bei einem Fehler die Original-Nachricht zurückgeben
+            return htmlspecialchars($message);
         }
     }
 }

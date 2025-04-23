@@ -1002,39 +1002,34 @@ class Server {
     }
     
     /**
-     * Sends WATCH notifications to all users who have this user on their watch list
-     * when a user connects or changes nickname
+     * Benachrichtigt alle Benutzer, die einen bestimmten Benutzer beobachten (WATCH)
      * 
-     * @param User $user The user whose status changed
-     * @param bool $isOnline Whether the user is now online (true) or offline (false)
-     * @param string|null $oldNick The previous nickname, if this is a nickname change
+     * @param User $user Der Benutzer, dessen Status sich geändert hat
+     * @param bool $online True, wenn der Benutzer online gegangen ist, False wenn offline
      */
-    public function broadcastWatchNotifications(User $user, bool $isOnline = true, ?string $oldNick = null): void {
-        $config = $this->getConfig();
+    public function broadcastWatchNotifications(User $user, bool $online): void {
         $nick = $user->getNick();
-        
-        // Keine Benachrichtigungen, wenn kein Nickname gesetzt ist
-        if ($nick === null) {
-            return;
+        if (!$nick) {
+            return; // Kann keine Benachrichtigung ohne Nickname senden
         }
         
-        // Wenn es ein Nicknamen-Wechsel ist, Benachrichtigungen für den alten Namen senden
-        if ($oldNick !== null) {
-            $this->sendOfflineWatchNotifications($oldNick);
-        }
+        $timestamp = time();
         
-        // Für alle Benutzer auf dem Server prüfen
         foreach ($this->users as $watcher) {
-            $watchList = $watcher->getWatchList();
+            // Benutzer muss registriert sein, um Benachrichtigungen zu erhalten
+            if (!$watcher->isRegistered()) {
+                continue;
+            }
             
-            // Prüfen, ob der aktuelle Benutzer in der Watch-Liste ist
-            if (in_array(strtolower($nick), $watchList)) {
-                if ($isOnline) {
-                    // Online-Benachrichtigung senden
-                    $watcher->send(":{$config['name']} 604 {$watcher->getNick()} {$nick} {$user->getIdent()} {$user->getHost()} {$user->getLastActivity()} :is online");
+            // Prüfen, ob der Watcher den Benutzer beobachtet
+            if ($watcher->isWatching($nick)) {
+                if ($online) {
+                    // Online-Benachrichtigung senden (604)
+                    $userInfo = $user->getIdent() . '@' . $user->getHost();
+                    $watcher->send(":{$this->config['name']} 604 {$watcher->getNick()} {$nick} {$userInfo} {$timestamp} :is online");
                 } else {
-                    // Offline-Benachrichtigung senden
-                    $watcher->send(":{$config['name']} 605 {$watcher->getNick()} {$nick} :is offline");
+                    // Offline-Benachrichtigung senden (605)
+                    $watcher->send(":{$this->config['name']} 605 {$watcher->getNick()} {$nick} {$timestamp} :is offline");
                 }
             }
         }

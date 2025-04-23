@@ -96,7 +96,22 @@ class ServerLinkHandler {
         $config = $this->server->getConfig();
         $serverLink->send("NOTICE AUTH :*** Server-to-server connection initiated");
         
-        // In a production environment, we would perform the PASS and SERVER handshake here
+        // In einem produktiven Umfeld müssen wir die vollständige PASS und SERVER-Handshake durchführen
+        // Das ist die vollständige Implementierung:
+        
+        // Passwort senden
+        if (!empty($config['server_password'])) {
+            $serverLink->send("PASS {$config['server_password']} :TS");
+        }
+        
+        // SERVER-Befehl senden
+        $description = $config['description'] ?? 'PHP-IRCd Server';
+        $serverLink->send("SERVER {$config['name']} 1 :{$description}");
+        
+        // Warte auf Antwort vom Remote-Server
+        $serverLink->updateActivity(); // Aktualisiere den Aktivitäts-Zeitstempel
+        
+        // Der Rest der Handshake-Sequenz wird in processServerCommand verarbeitet
     }
     
     /**
@@ -551,37 +566,60 @@ class ServerLinkHandler {
     }
     
     /**
-     * Gets or creates a remote user
+     * Sucht oder erstellt einen Remote-Benutzer
      * 
-     * @param string $nick The user's nickname
-     * @param string $identHost The ident/host information (user@host)
-     * @param ServerLink $serverLink The server link the user comes from
-     * @return User|null The remote user or null on error
+     * @param string $nickname Der Nickname des Benutzers
+     * @param string $identHost Die Ident@Host-Kombination oder nur Host des Benutzers
+     * @param ServerLink $serverLink Der ServerLink, über den der Benutzer verbunden ist
+     * @param string|null $realname Der Realname des Benutzers (optional)
+     * @return \PhpIrcd\Models\User|null Der gefundene oder erstellte Benutzer
      */
-    private function getOrCreateRemoteUser(string $nick, string $identHost, ServerLink $serverLink): ?User {
-        // Search if the user is already known locally
+    public function getOrCreateRemoteUser(string $nickname, string $identHost, ServerLink $serverLink, ?string $realname = null): ?\PhpIrcd\Models\User {
+        // Extrahiere Ident und Host aus der identHost-Kombination wenn möglich
+        $ident = 'remote';
+        $host = $serverLink->getName() . '.remote';
+        
+        if (strpos($identHost, '@') !== false) {
+            list($ident, $host) = explode('@', $identHost, 2);
+        } elseif (!empty($identHost)) {
+            $host = $identHost;
+        }
+        
+        // Suche nach einem existierenden Remote-Benutzer mit diesem Nickname
         foreach ($this->server->getUsers() as $user) {
-            if ($user->getNick() === $nick) {
+            if ($user->getNick() !== null && 
+                $user->isRemoteUser() &&
+                strtolower($user->getNick()) === strtolower($nickname) &&
+                $user->getRemoteServer() === $serverLink->getName()) {
+                
                 return $user;
             }
         }
         
-        // If not, create a new remote user
-        $identHostParts = explode('@', $identHost, 2);
-        $ident = $identHostParts[0] ?? 'unknown';
-        $host = $identHostParts[1] ?? 'unknown.host';
-        
-        // Create new remote user with dummy socket
-        $user = new User(null, $serverLink->getName() . ".remote");
-        $user->setNick($nick);
+        // Erstelle einen neuen virtuellen Benutzer für den Remote-Benutzer
+        $user = new \PhpIrcd\Models\User(null, $host, false);
+        $user->setNick($nickname);
         $user->setIdent($ident);
         $user->setHost($host);
-        $user->setRealname("Remote user from " . $serverLink->getName());
+        
+        // Setze den Realname, falls angegeben
+        if ($realname !== null) {
+            $user->setRealname($realname);
+        } else {
+            $user->setRealname("Remote user from {$serverLink->getName()}");
+        }
+        
+        // Markiere den Benutzer als Remote-Benutzer
         $user->setRemoteUser(true);
         $user->setRemoteServer($serverLink->getName());
         
-        // Add user to the server
+        // Setze die Server-Referenz
+        $user->setServer($this->server);
+        
+        // Füge den Benutzer zum Server hinzu
         $this->server->addUser($user);
+        
+        $this->server->getLogger()->info("Remote user created: {$nickname}!{$ident}@{$host} on {$serverLink->getName()}");
         
         return $user;
     }
@@ -1086,7 +1124,7 @@ class ServerLinkHandler {
      */
     private function handleMessageCommand(ServerLink $serverLink, string $prefix, string $commandType, array $parts): void {
         // Check if enough parameters are present
-        if (!isset($parts[1]) || !isset($parts[2])) {
+        if (!isset($parts[1])) {
             return;
         }
         
@@ -1098,17 +1136,35 @@ class ServerLinkHandler {
         // Extract target of the message
         $target = $parts[1];
         
-        // Extract message content (starts with :)
+        // Extract message content
         $message = '';
-        for ($i = 2; $i < count($parts); $i++) {
-            if ($parts[$i][0] === ':') {
-                $message = substr(implode(' ', array_slice($parts, $i)), 1);
-                break;
+        if (count($parts) >= 3) {
+            if ($parts[2][0] === ':') {
+                // Message starts with a colon in the first part
+                $message = substr($parts[2], 1);
+                if (count($parts) > 3) {
+                    $message .= ' ' . implode(' ', array_slice($parts, 3));
+                }
+            } else {
+                // Find where the message with colon starts
+                $colonFound = false;
+                for ($i = 2; $i < count($parts); $i++) {
+                    if ($parts[$i][0] === ':') {
+                        $message = substr(implode(' ', array_slice($parts, $i)), 1);
+                        $colonFound = true;
+                        break;
+                    }
+                }
+                
+                // If no colon found, use the rest of the parts as the message
+                if (!$colonFound) {
+                    $message = implode(' ', array_slice($parts, 2));
+                }
             }
         }
         
         if (empty($message)) {
-            return;
+            return; // Keine Nachricht vorhanden
         }
         
         // Extract user information from the prefix (nick!user@host)
@@ -1130,6 +1186,11 @@ class ServerLinkHandler {
                     if (!$user->isRemoteUser() && $user->getNick() !== $nick) {
                         $user->send($fullCommand);
                     }
+                }
+                
+                // Store message in channel history if it's a PRIVMSG
+                if ($commandType === 'PRIVMSG') {
+                    $channel->addMessageToHistory($fullCommand, $nick);
                 }
                 
                 // Forward message to all other servers (except the origin server)

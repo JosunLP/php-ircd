@@ -6,183 +6,184 @@ use PhpIrcd\Models\User;
 
 class WatchCommand extends CommandBase {
     /**
-     * Executes the WATCH command
-     * According to IRC standard extension
+     * Führt den WATCH-Befehl aus
      * 
-     * @param User $user The executing user
-     * @param array $args The command arguments
+     * @param User $user Der ausführende Benutzer
+     * @param array $args Die Befehlsargumente
      */
     public function execute(User $user, array $args): void {
-        // Ensure the user is registered
+        // Stellen Sie sicher, dass der Benutzer registriert ist
         if (!$this->ensureRegistered($user)) {
             return;
         }
         
-        $config = $this->server->getConfig();
-        $nick = $user->getNick();
-        
-        // If no parameters are provided, show the watch list
-        if (!isset($args[1])) {
-            $this->showWatchList($user);
+        // Wenn keine Argumente angegeben wurden, zeige die komplette Watch-Liste
+        if (count($args) < 2) {
+            $this->sendWatchList($user);
             return;
         }
         
-        // Process each watch parameter
-        foreach (array_slice($args, 1) as $param) {
-            if (empty($param)) {
+        // Verarbeite die Argumente
+        $targets = explode(',', $args[1]);
+        
+        foreach ($targets as $target) {
+            // Überprüfen Sie, ob es sich um einen Add- oder Remove-Befehl handelt
+            // Format: [+|-]nickname
+            if (empty($target)) {
                 continue;
             }
             
-            // Process commands starting with + or -
-            $firstChar = substr($param, 0, 1);
-            $targetNick = substr($param, 1);
+            $operation = substr($target, 0, 1);
+            $nickname = substr($target, 1);
             
-            switch ($firstChar) {
-                case '+': // Add to watch list
-                    $this->addToWatchList($user, $targetNick);
-                    break;
-                    
-                case '-': // Remove from watch list
-                    $this->removeFromWatchList($user, $targetNick);
-                    break;
-                    
-                case 'C': // Clear watch list
-                case 'c':
-                    $this->clearWatchList($user);
-                    break;
-                    
-                case 'L': // List watch entries
-                case 'l':
-                    $this->showWatchList($user);
-                    break;
-                    
-                case 'S': // Status of watched nicknames
-                case 's':
-                    $this->showWatchStatus($user);
-                    break;
-                    
-                default:
-                    // If no command specified, treat as +nick
-                    $this->addToWatchList($user, $param);
-                    break;
+            if ($operation === '+') {
+                // Nickname zur Watch-Liste hinzufügen
+                $this->addToWatchList($user, $nickname);
+            } elseif ($operation === '-') {
+                // Nickname von der Watch-Liste entfernen
+                $this->removeFromWatchList($user, $nickname);
+            } elseif ($target === 'C') {
+                // Watch-Liste leeren
+                $this->clearWatchList($user);
+            } elseif ($target === 'S') {
+                // Status aller überwachten Benutzer anzeigen
+                $this->showAllStatus($user);
+            } elseif ($target === 'L') {
+                // Einfach die Watch-Liste anzeigen
+                $this->sendWatchList($user);
+            } else {
+                // Wenn kein Operator angegeben wird, standardmäßig hinzufügen
+                $this->addToWatchList($user, $target);
             }
         }
     }
     
     /**
-     * Add a nickname to the user's watch list
+     * Fügt einen Nickname zur Watch-Liste eines Benutzers hinzu
      * 
-     * @param User $user The watching user
-     * @param string $targetNick The nickname to watch
+     * @param User $user Der Benutzer, dessen Liste aktualisiert wird
+     * @param string $nickname Der zu überwachende Nickname
      */
-    private function addToWatchList(User $user, string $targetNick): void {
-        // Check if already at maximum watch list size
-        $watchList = $user->getWatchList();
-        $maxWatch = 128; // From ISUPPORT WATCH=128
+    private function addToWatchList(User $user, string $nickname): void {
+        $config = $this->server->getConfig();
+        $nick = $user->getNick();
         
-        if (count($watchList) >= $maxWatch) {
-            // Maximum watch list size reached
-            $user->send(":{$this->server->getConfig()['name']} 512 {$user->getNick()} {$targetNick} :Too many WATCH entries");
+        // Prüfen, ob der Nickname gültig ist
+        if (empty($nickname)) {
             return;
         }
         
-        // Prepare nickname (convert to lowercase for case-insensitive matching)
-        $targetNick = strtolower($targetNick);
-        
-        // Add to watch list if not already there
-        if (!in_array($targetNick, $watchList)) {
-            $user->addToWatchList($targetNick);
-        }
-        
-        // Check if the target nick is currently online
-        $targetUser = null;
-        foreach ($this->server->getUsers() as $serverUser) {
-            if ($serverUser->getNick() !== null && strtolower($serverUser->getNick()) === $targetNick) {
-                $targetUser = $serverUser;
-                break;
-            }
-        }
-        
-        // Send online notification if target is online
-        if ($targetUser !== null) {
-            $user->send(":{$this->server->getConfig()['name']} 604 {$user->getNick()} {$targetUser->getNick()} {$targetUser->getIdent()} {$targetUser->getHost()} {$targetUser->getLastActivity()} :is online");
-        } else {
-            // Send offline notification
-            $user->send(":{$this->server->getConfig()['name']} 605 {$user->getNick()} {$targetNick} :is offline");
-        }
-    }
-    
-    /**
-     * Remove a nickname from the user's watch list
-     * 
-     * @param User $user The watching user
-     * @param string $targetNick The nickname to stop watching
-     */
-    private function removeFromWatchList(User $user, string $targetNick): void {
-        // Prepare nickname (convert to lowercase for case-insensitive matching)
-        $targetNick = strtolower($targetNick);
-        
-        // Remove from watch list
-        $user->removeFromWatchList($targetNick);
-        
-        // Send confirmation
-        $user->send(":{$this->server->getConfig()['name']} 602 {$user->getNick()} {$targetNick} :stopped watching");
-    }
-    
-    /**
-     * Clear the user's watch list
-     * 
-     * @param User $user The user
-     */
-    private function clearWatchList(User $user): void {
-        $user->clearWatchList();
-        $user->send(":{$this->server->getConfig()['name']} 603 {$user->getNick()} :Watch list cleared");
-    }
-    
-    /**
-     * Show the user's watch list
-     * 
-     * @param User $user The user
-     */
-    private function showWatchList(User $user): void {
-        $watchList = $user->getWatchList();
-        
-        // Send list header
-        $user->send(":{$this->server->getConfig()['name']} 606 {$user->getNick()} :Begin of WATCH list");
-        
-        // Send each entry in the list
-        foreach ($watchList as $watchedNick) {
-            $user->send(":{$this->server->getConfig()['name']} 607 {$user->getNick()} {$watchedNick}");
-        }
-        
-        // Send list footer
-        $user->send(":{$this->server->getConfig()['name']} 608 {$user->getNick()} :End of WATCH list");
-    }
-    
-    /**
-     * Show status of all watched nicknames
-     * 
-     * @param User $user The user
-     */
-    private function showWatchStatus(User $user): void {
-        $watchList = $user->getWatchList();
-        
-        foreach ($watchList as $watchedNick) {
-            // Check if the watched nick is currently online
-            $targetUser = null;
-            foreach ($this->server->getUsers() as $serverUser) {
-                if ($serverUser->getNick() !== null && strtolower($serverUser->getNick()) === $watchedNick) {
-                    $targetUser = $serverUser;
+        // Hinzufügen zur Watch-Liste
+        if ($user->addToWatchList($nickname)) {
+            // Nach Benutzern suchen, die diesen Nickname haben und online sind
+            $found = false;
+            foreach ($this->server->getUsers() as $targetUser) {
+                // Nicht registrierte Benutzer überspringen
+                if (!$targetUser->isRegistered()) {
+                    continue;
+                }
+                
+                if (strtolower($targetUser->getNick()) === strtolower($nickname)) {
+                    // Benutzer gefunden, senden Sie eine Online-Benachrichtigung
+                    $userInfo = $targetUser->getIdent() . '@' . $targetUser->getHost();
+                    $user->send(":{$config['name']} 604 {$nick} {$nickname} {$userInfo} " . time() . " :is online");
+                    $found = true;
                     break;
                 }
             }
             
-            // Send online or offline notification
-            if ($targetUser !== null) {
-                $user->send(":{$this->server->getConfig()['name']} 604 {$user->getNick()} {$targetUser->getNick()} {$targetUser->getIdent()} {$targetUser->getHost()} {$targetUser->getLastActivity()} :is online");
-            } else {
-                $user->send(":{$this->server->getConfig()['name']} 605 {$user->getNick()} {$watchedNick} :is offline");
+            // Wenn der Benutzer nicht gefunden wurde, senden Sie eine Offline-Benachrichtigung
+            if (!$found) {
+                $user->send(":{$config['name']} 605 {$nick} {$nickname} " . time() . " :is offline");
+            }
+        } else {
+            // Benutzer konnte nicht zur Watch-Liste hinzugefügt werden (Liste voll)
+            $user->send(":{$config['name']} 601 {$nick} {$nickname} :Watch list is full");
+        }
+    }
+    
+    /**
+     * Entfernt einen Nickname aus der Watch-Liste eines Benutzers
+     * 
+     * @param User $user Der Benutzer, dessen Liste aktualisiert wird
+     * @param string $nickname Der nicht mehr zu überwachende Nickname
+     */
+    private function removeFromWatchList(User $user, string $nickname): void {
+        $user->removeFromWatchList($nickname);
+    }
+    
+    /**
+     * Leert die Watch-Liste eines Benutzers
+     * 
+     * @param User $user Der Benutzer, dessen Liste geleert wird
+     */
+    private function clearWatchList(User $user): void {
+        $user->clearWatchList();
+        $config = $this->server->getConfig();
+        $nick = $user->getNick();
+        
+        // Bestätigung senden
+        $user->send(":{$config['name']} 602 {$nick} :Watch list cleared");
+    }
+    
+    /**
+     * Zeigt den Status aller überwachten Benutzer an
+     * 
+     * @param User $user Der Benutzer, der den Status angefordert hat
+     */
+    private function showAllStatus(User $user): void {
+        $config = $this->server->getConfig();
+        $nick = $user->getNick();
+        
+        // Holen Sie sich die Watch-Liste des Benutzers
+        $watchList = $user->getWatchList();
+        
+        // Für jeden Eintrag in der Watch-Liste, suchen Sie nach Benutzern
+        foreach ($watchList as $watchedNick) {
+            $found = false;
+            foreach ($this->server->getUsers() as $targetUser) {
+                // Nicht registrierte Benutzer überspringen
+                if (!$targetUser->isRegistered()) {
+                    continue;
+                }
+                
+                if (strtolower($targetUser->getNick()) === strtolower($watchedNick)) {
+                    // Benutzer gefunden, senden Sie eine Online-Benachrichtigung
+                    $userInfo = $targetUser->getIdent() . '@' . $targetUser->getHost();
+                    $user->send(":{$config['name']} 604 {$nick} {$watchedNick} {$userInfo} " . time() . " :is online");
+                    $found = true;
+                    break;
+                }
+            }
+            
+            // Wenn der Benutzer nicht gefunden wurde, senden Sie eine Offline-Benachrichtigung
+            if (!$found) {
+                $user->send(":{$config['name']} 605 {$nick} {$watchedNick} " . time() . " :is offline");
             }
         }
+        
+        // Ende der Liste
+        $user->send(":{$config['name']} 607 {$nick} :End of WATCH S");
+    }
+    
+    /**
+     * Sendet die Watch-Liste an den Benutzer
+     * 
+     * @param User $user Der Benutzer, dem die Liste gesendet werden soll
+     */
+    private function sendWatchList(User $user): void {
+        $config = $this->server->getConfig();
+        $nick = $user->getNick();
+        
+        // Holen Sie sich die Watch-Liste des Benutzers
+        $watchList = $user->getWatchList();
+        
+        // Senden Sie jeden Eintrag der Watch-Liste
+        foreach ($watchList as $watchedNick) {
+            $user->send(":{$config['name']} 606 {$nick} {$watchedNick} :is on your watch list");
+        }
+        
+        // Ende der Liste
+        $user->send(":{$config['name']} 607 {$nick} :End of WATCH L");
     }
 }

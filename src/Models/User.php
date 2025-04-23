@@ -30,6 +30,12 @@ class User {
     private $remoteServer = null; // Neu: Name des Remote-Servers
     private $server = null; // Neu: Referenz auf den Server, in dem der Benutzer registriert ist
     private $undergoing302Negotiation = false; // Flag für IRCv3.2 (302) CAP-Verhandlung
+
+    /**
+     * Die maximale Anzahl von Einträgen in der Watch-Liste
+     * @var int
+     */
+    private const MAX_WATCH_ENTRIES = 128;
     
     /**
      * Constructor
@@ -634,7 +640,7 @@ class User {
     }
 
     /**
-     * Get the watch list
+     * Get the WATCH list of this user
      * 
      * @return array The list of watched nicknames
      */
@@ -643,51 +649,72 @@ class User {
     }
     
     /**
-     * Add a nickname to the watch list
+     * Add a nickname to the WATCH list
      * 
-     * @param string $nickname The nickname to watch
-     * @return bool Success
+     * @param string $nickname The nickname to add
+     * @return bool Success (false if already at maximum entries)
      */
     public function addToWatchList(string $nickname): bool {
-        $nickname = strtolower($nickname); // Case-insensitive storage
+        $lowerNick = strtolower($nickname);
         
-        // Check if already watching this nickname
-        if (in_array($nickname, $this->watchList)) {
+        // Prüfen, ob der Nickname bereits in der Liste ist
+        if (in_array($lowerNick, array_map('strtolower', $this->watchList))) {
             return true;
         }
         
-        // Check for maximum watch list size
-        if (count($this->watchList) >= 128) { // Maximum specified in ISUPPORT
+        // Prüfen, ob die Liste voll ist
+        $maxEntries = 128; // Standard-Wert
+        if ($this->server) {
+            $config = $this->server->getConfig();
+            $maxEntries = $config['max_watch_entries'] ?? 128;
+        }
+        
+        if (count($this->watchList) >= $maxEntries) {
             return false;
         }
         
+        // Hinzufügen zur Liste
         $this->watchList[] = $nickname;
         return true;
     }
     
     /**
-     * Remove a nickname from the watch list
+     * Entfernt einen Nickname von der WATCH-Liste
      * 
-     * @param string $nickname The nickname to remove
-     * @return bool Whether the nickname was removed
+     * @param string $nickname Der zu entfernende Nickname
      */
-    public function removeFromWatchList(string $nickname): bool {
-        $nickname = strtolower($nickname); // Case-insensitive search
-        
-        $key = array_search($nickname, $this->watchList);
-        if ($key !== false) {
-            unset($this->watchList[$key]);
-            $this->watchList = array_values($this->watchList); // Reindex array
-            return true;
+    public function removeFromWatchList(string $nickname): void {
+        $lowerNick = strtolower($nickname);
+        foreach ($this->watchList as $key => $watchedNick) {
+            if (strtolower($watchedNick) === $lowerNick) {
+                unset($this->watchList[$key]);
+                $this->watchList = array_values($this->watchList); // Array neu indizieren
+                break;
+            }
         }
-        return false;
     }
     
     /**
-     * Clear the watch list
+     * Leert die WATCH-Liste
      */
     public function clearWatchList(): void {
         $this->watchList = [];
+    }
+    
+    /**
+     * Prüft, ob ein Nickname überwacht wird
+     * 
+     * @param string $nickname Der zu prüfende Nickname
+     * @return bool Ob der Nickname überwacht wird
+     */
+    public function isWatching(string $nickname): bool {
+        $lowerNick = strtolower($nickname);
+        foreach ($this->watchList as $watchedNick) {
+            if (strtolower($watchedNick) === $lowerNick) {
+                return true;
+            }
+        }
+        return false;
     }
     
     /**
@@ -959,5 +986,32 @@ class User {
      */
     public function isUndergoing302Negotiation(): bool {
         return $this->undergoing302Negotiation;
+    }
+
+    /**
+     * Set the server reference
+     * 
+     * @param \PhpIrcd\Core\Server $server The server instance
+     */
+    public function setServer(\PhpIrcd\Core\Server $server): void {
+        $this->server = $server;
+    }
+
+    /**
+     * Get the remote server name
+     * 
+     * @return string|null The name of the remote server or null if not a remote user
+     */
+    public function getRemoteServer(): ?string {
+        return $this->remoteServer;
+    }
+
+    /**
+     * Set the remote server name
+     * 
+     * @param string $serverName The name of the remote server
+     */
+    public function setRemoteServer(string $serverName): void {
+        $this->remoteServer = $serverName;
     }
 }

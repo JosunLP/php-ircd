@@ -60,19 +60,10 @@ class UserCommand extends CommandBase {
         $user->send(":{$config['name']} 003 {$nick} :This server was created " . date('D M d H:i:s Y', $this->server->getStartTime()));
         $user->send(":{$config['name']} 004 {$nick} {$config['name']} Danoserv {$config['version']} iowghraAsORTVSxNCWqBzvdHtGp lvhopsmntikrRcaqOALQbSeIKVfMCuzNTGj");
         
-        // ISUPPORT (005) Nachrichten - Verbessert und auf tatsächliche Server-Fähigkeiten abgestimmt
-        // Erste Zeile der ISUPPORT-Nachrichten
-        $user->send(":{$config['name']} 005 {$nick} CHANTYPES=# EXCEPTS INVEX CHANMODES=eIbq,k,flj,CFLMPQScgimnprstuz CHANLIMIT=#:20 PREFIX=(ov)@+ MAXLIST=bqeI:100 MODES=4 NETWORK={$config['net']} KNOCK :are supported by this server");
-        
-        // Zweite Zeile der ISUPPORT-Nachrichten
-        $user->send(":{$config['name']} 005 {$nick} CALLERID=g SAFELIST ELIST=U STATUSMSG=@+ CHANNELLEN=32 NICKLEN=30 TOPICLEN=307 KICKLEN=307 AWAYLEN=307 SILENCE=15 :are supported by this server");
-        
-        // Dritte Zeile mit zusätzlichen IRCv3-Features und Unterstützung
-        $user->send(":{$config['name']} 005 {$nick} CASEMAPPING=rfc1459 CHARSET=utf-8 MAXTARGETS=4 WATCH=128 NAMESX UHNAMES USERIP WALLCHOPS FNC CHATHISTORY=100 :are supported by this server");
-        
-        // Vierte Zeile für die erweiterten IRCv3 Capabilities
-        $capsSupported = implode(' ', $this->server->getSupportedCapabilities());
-        $user->send(":{$config['name']} 005 {$nick} CAP={$capsSupported} :are supported by this server");
+        // ISUPPORT (005) Nachrichten - Verbesserte Version mit allen unterstützten Funktionen
+        $user->send(":{$config['name']} 005 {$nick} CHANTYPES=# EXCEPTS INVEX CHANMODES=eIbq,k,flj,CFLMPQSTcgimnprstz CHANLIMIT=#:100 PREFIX=(ov)@+ MAXLIST=beI:100 MODES=4 NETWORK={$config['network_name']} STATUSMSG=@+ CALLERID=g CASEMAPPING=rfc1459 :are supported by this server");
+        $user->send(":{$config['name']} 005 {$nick} CHARSET=UTF-8 FNC NICKLEN=30 CHANNELLEN=50 TOPICLEN=390 DEAF=D TARGMAX=NAMES:1,LIST:1,KICK:1,WHOIS:1,PRIVMSG:4,NOTICE:4,ACCEPT:,MONITOR: EXTBAN=$,ajrxz :are supported by this server");
+        $user->send(":{$config['name']} 005 {$nick} SAFELIST ELIST=CTU CPRIVMSG CNOTICE KNOCK MONITOR=100 WHOX ETRACE HELP :are supported by this server");
         
         // Statistiken senden
         $userCount = count($this->server->getUsers());

@@ -627,15 +627,22 @@ class Channel {
      * @return bool Success of the operation
      */
     public function removeInviteException(string $mask): bool {
+        $found = false;
+        
         foreach ($this->inviteExceptions as $key => $exception) {
             if ($exception['mask'] === $mask) {
                 unset($this->inviteExceptions[$key]);
-                $this->inviteExceptions = array_values($this->inviteExceptions);
-                return true;
+                $found = true;
+                // Weitersuchen, um alle Vorkommen zu entfernen
             }
         }
         
-        return false;
+        // Array neu indizieren
+        if ($found) {
+            $this->inviteExceptions = array_values($this->inviteExceptions);
+        }
+        
+        return $found;
     }
     
     /**

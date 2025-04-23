@@ -3,14 +3,8 @@
 namespace PhpIrcd\Commands;
 
 use PhpIrcd\Models\User;
-use PhpIrcd\Utils\IRCv3Helper;
+use PhpIrcd\Models\Channel;
 
-/**
- * Implementierung des IRCv3 CHATHISTORY-Befehls
- * Ermöglicht es Clients, vergangene Nachrichten aus Kanälen abzurufen
- * 
- * Syntax: CHATHISTORY LATEST <target> <limit>
- */
 class ChathistoryCommand extends CommandBase {
     /**
      * Führt den CHATHISTORY-Befehl aus
@@ -19,19 +13,28 @@ class ChathistoryCommand extends CommandBase {
      * @param array $args Die Befehlsargumente
      */
     public function execute(User $user, array $args): void {
-        // Überprüfen, ob der Benutzer registriert ist
+        // Sicherstellen, dass der Benutzer registriert ist
         if (!$this->ensureRegistered($user)) {
             return;
         }
         
-        // Überprüfen, ob der Benutzer die chathistory-Capability hat
+        // Überprüfen, ob ChatHistory aktiviert ist
+        $config = $this->server->getConfig();
+        if (!isset($config['ircv3_features']) || 
+            !isset($config['ircv3_features']['chathistory']) || 
+            !$config['ircv3_features']['chathistory']) {
+            $this->sendError($user, 'CHATHISTORY', 'CHATHISTORY capability not enabled', 410);
+            return;
+        }
+        
+        // Überprüfen, ob der Benutzer die ChatHistory-Capability aktiviert hat
         if (!$user->hasCapability('chathistory')) {
             $this->sendError($user, 'CHATHISTORY', 'CHATHISTORY capability not enabled', 410);
             return;
         }
         
         // Überprüfen, ob genügend Parameter angegeben wurden
-        if (!isset($args[3])) {
+        if (count($args) < 4) {
             $this->sendError($user, 'CHATHISTORY', 'Not enough parameters', 461);
             return;
         }
@@ -41,82 +44,215 @@ class ChathistoryCommand extends CommandBase {
         $limit = isset($args[3]) ? (int)$args[3] : 50;
         
         // Maximales Limit festlegen
-        $limit = min($limit, 100);
+        $maxLimit = $config['chathistory_max_messages'] ?? 100;
+        $limit = min($limit, $maxLimit);
         
-        // Überprüfen, ob der Subcommand unterstützt wird
-        if ($subcommand !== 'LATEST') {
-            $this->sendError($user, 'CHATHISTORY', 'Unsupported subcommand', 421);
-            return;
+        // Prüfen auf unterstützte Subcommands
+        switch ($subcommand) {
+            case 'LATEST':
+                $this->handleLatest($user, $target, $limit);
+                break;
+                
+            case 'BEFORE':
+                if (count($args) < 5) {
+                    $this->sendError($user, 'CHATHISTORY', 'Not enough parameters for BEFORE', 461);
+                    return;
+                }
+                $timestamp = strtotime($args[4]);
+                if ($timestamp === false) {
+                    $this->sendError($user, 'CHATHISTORY', 'Invalid timestamp format', 461);
+                    return;
+                }
+                $this->handleBefore($user, $target, $limit, $timestamp);
+                break;
+                
+            case 'AFTER':
+                if (count($args) < 5) {
+                    $this->sendError($user, 'CHATHISTORY', 'Not enough parameters for AFTER', 461);
+                    return;
+                }
+                $timestamp = strtotime($args[4]);
+                if ($timestamp === false) {
+                    $this->sendError($user, 'CHATHISTORY', 'Invalid timestamp format', 461);
+                    return;
+                }
+                $this->handleAfter($user, $target, $limit, $timestamp);
+                break;
+                
+            default:
+                $this->sendError($user, 'CHATHISTORY', 'Unsupported subcommand', 421);
+                return;
         }
-        
+    }
+    
+    /**
+     * Verarbeitet den CHATHISTORY LATEST Befehl
+     * 
+     * @param User $user Der ausführende Benutzer
+     * @param string $target Das Ziel (Kanal oder Benutzer)
+     * @param int $limit Das Limit der zurückzugebenden Nachrichten
+     */
+    private function handleLatest(User $user, string $target, int $limit): void {
         // Überprüfen, ob das Ziel ein Kanal ist
-        if ($target[0] !== '#') {
-            $this->sendError($user, 'CHATHISTORY', 'Only channel history is supported', 403);
-            return;
+        if ($target[0] === '#' || $target[0] === '&') {
+            $channel = $this->server->getChannel($target);
+            if ($channel === null) {
+                $this->sendError($user, 'CHATHISTORY', 'No such channel', 403);
+                return;
+            }
+            
+            // Prüfen, ob der Benutzer im Kanal ist
+            if (!$channel->hasUser($user)) {
+                $this->sendError($user, 'CHATHISTORY', 'You are not on that channel', 442);
+                return;
+            }
+            
+            // Kanalhistorie abrufen
+            $this->sendChannelHistory($user, $channel, $limit);
+        } else {
+            // PM-Historie wird noch nicht unterstützt
+            $this->sendError($user, 'CHATHISTORY', 'Private message history not yet implemented', 421);
         }
-        
-        // Nach Kanal suchen
-        $channel = $this->server->getChannel($target);
-        
-        // Wenn Kanal nicht gefunden, Fehler senden
-        if ($channel === null) {
-            $config = $this->server->getConfig();
-            $nick = $user->getNick();
-            $user->send(":{$config['name']} 403 {$nick} {$target} :No such channel");
-            return;
+    }
+    
+    /**
+     * Verarbeitet den CHATHISTORY BEFORE Befehl
+     * 
+     * @param User $user Der ausführende Benutzer
+     * @param string $target Das Ziel (Kanal oder Benutzer)
+     * @param int $limit Das Limit der zurückzugebenden Nachrichten
+     * @param int $timestamp Der Zeitstempel, vor dem Nachrichten abgerufen werden sollen
+     */
+    private function handleBefore(User $user, string $target, int $limit, int $timestamp): void {
+        // Überprüfen, ob das Ziel ein Kanal ist
+        if ($target[0] === '#' || $target[0] === '&') {
+            $channel = $this->server->getChannel($target);
+            if ($channel === null) {
+                $this->sendError($user, 'CHATHISTORY', 'No such channel', 403);
+                return;
+            }
+            
+            // Prüfen, ob der Benutzer im Kanal ist
+            if (!$channel->hasUser($user)) {
+                $this->sendError($user, 'CHATHISTORY', 'You are not on that channel', 442);
+                return;
+            }
+            
+            // Kanalhistorie vor dem Zeitstempel abrufen
+            $history = $channel->getMessageHistory($limit * 2); // Mehr abrufen, um zu filtern
+            $filteredHistory = array_filter($history, function($msg) use ($timestamp) {
+                return $msg['timestamp'] < $timestamp;
+            });
+            
+            // Begrenzen und sortieren
+            $limitedHistory = array_slice($filteredHistory, -$limit);
+            
+            // History senden
+            $this->sendMessages($user, $limitedHistory);
+        } else {
+            // PM-Historie wird noch nicht unterstützt
+            $this->sendError($user, 'CHATHISTORY', 'Private message history not yet implemented', 421);
         }
-        
-        // Überprüfen, ob der Benutzer im Kanal ist
-        if (!$channel->hasUser($user)) {
-            $config = $this->server->getConfig();
-            $nick = $user->getNick();
-            $user->send(":{$config['name']} 442 {$nick} {$target} :You're not on that channel");
-            return;
+    }
+    
+    /**
+     * Verarbeitet den CHATHISTORY AFTER Befehl
+     * 
+     * @param User $user Der ausführende Benutzer
+     * @param string $target Das Ziel (Kanal oder Benutzer)
+     * @param int $limit Das Limit der zurückzugebenden Nachrichten
+     * @param int $timestamp Der Zeitstempel, nach dem Nachrichten abgerufen werden sollen
+     */
+    private function handleAfter(User $user, string $target, int $limit, int $timestamp): void {
+        // Überprüfen, ob das Ziel ein Kanal ist
+        if ($target[0] === '#' || $target[0] === '&') {
+            $channel = $this->server->getChannel($target);
+            if ($channel === null) {
+                $this->sendError($user, 'CHATHISTORY', 'No such channel', 403);
+                return;
+            }
+            
+            // Prüfen, ob der Benutzer im Kanal ist
+            if (!$channel->hasUser($user)) {
+                $this->sendError($user, 'CHATHISTORY', 'You are not on that channel', 442);
+                return;
+            }
+            
+            // Kanalhistorie nach dem Zeitstempel abrufen
+            $history = $channel->getMessageHistory($limit * 2); // Mehr abrufen, um zu filtern
+            $filteredHistory = array_filter($history, function($msg) use ($timestamp) {
+                return $msg['timestamp'] > $timestamp;
+            });
+            
+            // Begrenzen und sortieren
+            $limitedHistory = array_slice($filteredHistory, 0, $limit);
+            
+            // History senden
+            $this->sendMessages($user, $limitedHistory);
+        } else {
+            // PM-Historie wird noch nicht unterstützt
+            $this->sendError($user, 'CHATHISTORY', 'Private message history not yet implemented', 421);
         }
-        
-        // Nachrichtenhistorie abrufen
+    }
+    
+    /**
+     * Sendet die Kanalhistorie an einen Benutzer
+     * 
+     * @param User $user Der Benutzer, der die Historie angefordert hat
+     * @param Channel $channel Der Kanal, dessen Historie angefordert wurde
+     * @param int $limit Die maximale Anzahl an Nachrichten
+     */
+    private function sendChannelHistory(User $user, Channel $channel, int $limit): void {
+        // Kanalhistorie abrufen
         $history = $channel->getMessageHistory($limit);
         
-        // Batch starten, wenn der Benutzer die batch-Capability hat
+        // Historische Nachrichten an den Benutzer senden
+        $this->sendMessages($user, $history);
+    }
+    
+    /**
+     * Sendet eine Liste von Nachrichten an einen Benutzer
+     * 
+     * @param User $user Der Benutzer
+     * @param array $messages Die zu sendenden Nachrichten
+     */
+    private function sendMessages(User $user, array $messages): void {
+        $config = $this->server->getConfig();
+        $nick = $user->getNick();
+        
+        // Wenn die Nachrichten in einer Gruppe gesendet werden sollen, verwende BATCH
+        $useBatch = $user->hasCapability('batch');
         $batchId = '';
-        if ($user->hasCapability('batch')) {
-            $batchId = IRCv3Helper::startBatch($user, 'chathistory', ['target' => $target]);
-            if ($batchId) {
-                $tags = ['batch' => $batchId];
-                $batchCommand = "BATCH +{$batchId} chathistory {$target}";
-                $taggedBatchCommand = IRCv3Helper::addMessageTags($batchCommand, $tags);
-                $user->send($taggedBatchCommand);
-            }
+        
+        if ($useBatch) {
+            $batchId = 'chathistory-' . uniqid();
+            $user->send(":{$config['name']} BATCH +{$batchId} chathistory");
         }
         
         // Nachrichten senden
-        foreach ($history as $entry) {
-            $message = $entry['message'];
+        foreach ($messages as $msg) {
+            $message = $msg['message'];
             
-            // Batch-Tag hinzufügen, wenn Batch aktiv ist
-            if ($batchId) {
-                $message = IRCv3Helper::addMessageTags($message, ['batch' => $batchId]);
+            // Wenn der Benutzer server-time unterstützt, füge Timestamp hinzu
+            if ($user->hasCapability('server-time')) {
+                $timestamp = gmdate('Y-m-d\TH:i:s.000\Z', $msg['timestamp']);
+                $message = "@time={$timestamp} " . $message;
             }
             
-            // Server-Time-Tag hinzufügen, wenn der Benutzer die Capability hat
-            if ($user->hasCapability('server-time')) {
-                $message = IRCv3Helper::addMessageTags($message, ['time' => IRCv3Helper::formatServerTime($entry['timestamp'])]);
+            // Wenn BATCH aktiv ist, Batch-Tag hinzufügen
+            if ($useBatch) {
+                $message = "@batch={$batchId} " . $message;
             }
             
             $user->send($message);
         }
         
-        // Batch beenden, wenn es gestartet wurde
-        if ($batchId) {
-            $endBatchCommand = "BATCH -{$batchId}";
-            $user->send($endBatchCommand);
-            IRCv3Helper::endBatch($user, $batchId);
+        // Batch beenden, falls verwendet
+        if ($useBatch) {
+            $user->send(":{$config['name']} BATCH -{$batchId}");
         }
         
-        // Bestätigung senden
-        $config = $this->server->getConfig();
-        $nick = $user->getNick();
-        $count = count($history);
-        $user->send(":{$config['name']} 900 {$nick} {$target} :CHATHISTORY LATEST {$count} items");
+        // End of history marker
+        $user->send(":{$config['name']} 718 {$nick} :End of CHATHISTORY");
     }
 }

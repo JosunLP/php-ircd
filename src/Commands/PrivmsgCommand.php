@@ -58,7 +58,7 @@ class PrivmsgCommand extends CommandBase {
         
         // Channel name starts with #
         if ($target[0] === '#') {
-            $this->sendChannelMessage($user, $target, $message);
+            $this->sendToChannel($user, $target, $message);
             return;
         }
         
@@ -106,55 +106,66 @@ class PrivmsgCommand extends CommandBase {
     }
     
     /**
-     * Sends a message to a channel
+     * Sendet eine Nachricht an einen Kanal
      * 
-     * @param User $user The sending user
-     * @param string $channelName The channel name
-     * @param string $message The message
+     * @param User $user Der Absender der Nachricht
+     * @param string $channelName Der Name des Zielkanals
+     * @param string $message Der Inhalt der Nachricht
      */
-    private function sendChannelMessage(User $user, string $channelName, string $message): void {
-        $config = $this->server->getConfig();
-        $nick = $user->getNick();
-        
-        // Search for channel
+    private function sendToChannel(User $user, string $channelName, string $message): void {
         $channel = $this->server->getChannel($channelName);
         
-        // If channel not found, send error
         if ($channel === null) {
-            $user->send(":{$config['name']} 401 {$nick} {$channelName} :No such nick/channel");
+            $this->sendError($user, $channelName, 'No such channel', 401);
             return;
         }
         
-        // Check if the user is in the channel
-        if (!$channel->hasUser($user)) {
-            $user->send(":{$config['name']} 404 {$nick} {$channelName} :Cannot send to channel");
+        // Wenn der Kanal moderiert ist und der Benutzer keine Sonderrechte hat, Nachricht blockieren
+        if (
+            $channel->hasMode('m') && 
+            !$channel->isOperator($user) && 
+            !$channel->isVoiced($user) && 
+            !$channel->isHalfop($user)
+        ) {
+            $this->sendError($user, $channelName, 'Cannot send to channel (moderated)', 404);
             return;
         }
         
-        // Check if the channel is in moderated mode and the user has no voice
-        if ($channel->hasMode('m') && !$channel->isVoiced($user) && !$channel->isOperator($user)) {
-            $user->send(":{$config['name']} 404 {$nick} {$channelName} :Cannot send to channel");
+        // Wenn der Benutzer nicht im Kanal ist und der Kanal keine externen Nachrichten erlaubt (Mode n)
+        if (!$channel->hasUser($user) && $channel->hasMode('n')) {
+            $this->sendError($user, $channelName, 'Cannot send to channel (no external messages)', 404);
             return;
         }
         
-        // Send message to all users in the channel (except the sender)
-        $formattedMessage = ":{$nick}!{$user->getIdent()}@{$user->getCloak()} PRIVMSG {$channelName} :{$message}";
-        
-        // IRCv3 ECHO-MESSAGE: Wenn der Sender echo-message unterstützt, sende die Nachricht auch an ihn
-        if ($user->hasCapability('echo-message')) {
-            $echoMessage = IRCv3Helper::addServerTimeIfSupported($formattedMessage, $user);
-            $user->send($echoMessage);
+        // Wenn der Benutzer gebannt ist und keine Voice oder höher hat
+        if (
+            $channel->isBanned($user) && 
+            !$channel->isVoiced($user) && 
+            !$channel->isOperator($user) && 
+            !$channel->isHalfop($user)
+        ) {
+            $this->sendError($user, $channelName, 'Cannot send to channel (banned)', 404);
+            return;
         }
+
+        // Erstelle den vollständigen Befehl zur Weiterleitung
+        $senderInfo = "{$user->getNick()}!{$user->getIdent()}@{$user->getHost()}";
+        $fullCommand = ":{$senderInfo} PRIVMSG {$channelName} :{$message}";
         
-        // Nachricht zur Kanalhistorie hinzufügen für CHATHISTORY
-        $channel->addMessageToHistory($formattedMessage, $nick);
+        // Speichere die Nachricht in der Kanalhistorie für CHATHISTORY
+        $channel->addMessageToHistory($fullCommand, $user->getNick());
         
-        foreach ($channel->getUsers() as $channelUser) {
-            if ($channelUser !== $user) {
-                // Mit IRCv3-Features erweitern (z.B. server-time)
-                $enhancedMessage = IRCv3Helper::addServerTimeIfSupported($formattedMessage, $channelUser);
-                $channelUser->send($enhancedMessage);
+        // Sende an alle Benutzer im Kanal außer dem Absender selbst
+        foreach ($channel->getUsers() as $recipient) {
+            // Überprüfe, ob der Benutzer den Absender stummgeschaltet hat
+            if ($recipient !== $user && !$recipient->isSilenced($user)) {
+                $this->deliverMessage($recipient, $user, $fullCommand, $message, true);
             }
+        }
+        
+        // Wenn der Absender echo-message aktiviert hat, Kopie an ihn selbst senden
+        if ($user->hasCapability('echo-message')) {
+            $this->deliverMessage($user, $user, $fullCommand, $message, true);
         }
     }
     

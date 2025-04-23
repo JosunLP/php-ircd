@@ -3,6 +3,7 @@
 namespace PhpIrcd\Commands;
 
 use PhpIrcd\Models\User;
+use PhpIrcd\Utils\IRCv3Helper;
 
 class NoticeCommand extends CommandBase {
     /**
@@ -43,7 +44,7 @@ class NoticeCommand extends CommandBase {
     private function sendNotice(User $user, string $target, string $message): void {
         // Channel name starts with #
         if ($target[0] === '#') {
-            $this->sendChannelNotice($user, $target, $message);
+            $this->sendToChannel($user, $target, $message);
             return;
         }
         
@@ -68,42 +69,63 @@ class NoticeCommand extends CommandBase {
     }
     
     /**
-     * Sends a notice to a channel
+     * Sendet eine Nachricht an einen Kanal
      * 
-     * @param User $user The sending user
-     * @param string $channelName The channel name
-     * @param string $message The message
+     * @param User $user Der Absender der Nachricht
+     * @param string $channelName Der Name des Zielkanals
+     * @param string $message Der Inhalt der Nachricht
      */
-    private function sendChannelNotice(User $user, string $channelName, string $message): void {
-        // Search for the channel
+    private function sendToChannel(User $user, string $channelName, string $message): void {
         $channel = $this->server->getChannel($channelName);
         
-        // If channel not found, do nothing (NOTICE does not send errors)
         if ($channel === null) {
+            return; // Bei NOTICE keine Fehler zurückgeben
+        }
+        
+        // Wenn der Kanal moderiert ist und der Benutzer keine Sonderrechte hat, Nachricht blockieren
+        if (
+            $channel->hasMode('m') && 
+            !$channel->isOperator($user) && 
+            !$channel->isVoiced($user) && 
+            !$channel->isHalfop($user)
+        ) {
             return;
         }
         
-        // Check if the user is in the channel
-        if (!$channel->hasUser($user)) {
+        // Wenn der Benutzer nicht im Kanal ist und der Kanal keine externen Nachrichten erlaubt (Mode n)
+        if (!$channel->hasUser($user) && $channel->hasMode('n')) {
             return;
         }
         
-        // Check if the channel is in no-external-messages mode
-        if ($channel->hasMode('n') && !$channel->hasUser($user)) {
+        // Wenn der Benutzer gebannt ist und keine Voice oder höher hat
+        if (
+            $channel->isBanned($user) && 
+            !$channel->isVoiced($user) && 
+            !$channel->isOperator($user) && 
+            !$channel->isHalfop($user)
+        ) {
             return;
         }
         
-        // Check if the channel is in moderated mode and the user has no voice
-        if ($channel->hasMode('m') && !$channel->isVoiced($user) && !$channel->isOperator($user)) {
-            return;
-        }
+        // Nachricht zusammenstellen
+        $senderInfo = "{$user->getNick()}!{$user->getIdent()}@{$user->getHost()}";
+        $fullCommand = ":{$senderInfo} NOTICE {$channelName} :{$message}";
         
-        // Send message to all users in the channel (except the sender)
-        $message = ":{$user->getNick()}!{$user->getIdent()}@{$user->getCloak()} NOTICE {$channelName} :{$message}";
+        // Speichere die Nachricht in der Kanalhistorie für CHATHISTORY
+        $channel->addMessageToHistory($fullCommand, $user->getNick());
+        
+        // Mit IRCv3-Features erweitern (z.B. server-time)
         foreach ($channel->getUsers() as $channelUser) {
-            if ($channelUser !== $user) {
-                $channelUser->send($message);
+            if ($channelUser !== $user && !$channelUser->isSilenced($user)) {
+                $enhancedMessage = IRCv3Helper::addServerTimeIfSupported($fullCommand, $channelUser);
+                $channelUser->send($enhancedMessage);
             }
+        }
+        
+        // Wenn der Absender echo-message aktiviert hat, Kopie an ihn selbst senden
+        if ($user->hasCapability('echo-message')) {
+            $enhancedMessage = IRCv3Helper::addServerTimeIfSupported($fullCommand, $user);
+            $user->send($enhancedMessage);
         }
     }
 }

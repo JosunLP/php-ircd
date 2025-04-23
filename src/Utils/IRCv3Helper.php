@@ -202,481 +202,124 @@ class IRCv3Helper {
      * 
      * @param string $message The original message
      * @param User $user The user receiving the message
-     * @param int|null $time The timestamp or null for the current time
      * @return string The modified message
      */
-    public static function addServerTimeIfSupported(string $message, User $user, ?int $time = null): string {
-        // Only if the user has the server-time capability
+    public static function addServerTimeIfSupported(string $message, User $user): string {
+        // Wenn der Benutzer die server-time Capability nicht unterstützt, Nachricht unverändert zurückgeben
         if (!$user->hasCapability('server-time')) {
             return $message;
         }
         
-        $serverTime = self::formatServerTime($time);
-        return self::addMessageTags($message, ['time' => $serverTime]);
-    }
-    
-    /**
-     * Generates a unique batch ID
-     * 
-     * @return string The generated batch ID
-     */
-    public static function generateBatchId(): string {
-        try {
-            // Use secure random bytes for stronger uniqueness
-            return bin2hex(random_bytes(4));
-        } catch (\Exception $e) {
-            // Fallback if random_bytes is not available
-            return bin2hex(pack('N', mt_rand(0, 0xffffffff)));
-        }
-    }
-    
-    /**
-     * Starts a new batch session for a user
-     * 
-     * @param User $user The user
-     * @param string $type The type of the batch (e.g., 'chathistory', 'netsplit')
-     * @param array $tags Additional tags for the batch
-     * @return string The batch ID of the new session
-     */
-    public static function startBatch(User $user, string $type, array $tags = []): string {
-        if (!$user->hasCapability('batch')) {
-            return '';
-        }
+        // Aktuellen Zeitstempel im ISO-8601 Format mit Millisekunden und Z für UTC erstellen
+        $timestamp = gmdate('Y-m-d\TH:i:s.000\Z');
         
-        $batchId = self::generateBatchId();
-        $userId = $user->getId();
-        
-        if (!isset(self::$activeBatches[$userId])) {
-            self::$activeBatches[$userId] = [];
-        }
-        
-        self::$activeBatches[$userId][$batchId] = [
-            'type' => $type,
-            'tags' => $tags,
-            'start_time' => time()
-        ];
-        
-        // Send the BATCH start command to the user
-        $batchCommand = "BATCH +{$batchId} {$type}";
-        
-        // Add additional parameters to the batch command
-        foreach ($tags as $key => $value) {
-            if (is_numeric($key)) {
-                // Pure parameter without key
-                $batchCommand .= " {$value}";
+        // Wenn die Nachricht bereits Tags hat (beginnt mit @), füge server-time als weiteres Tag hinzu
+        if (substr($message, 0, 1) === '@') {
+            // Tags von der Nachricht trennen
+            $parts = explode(' ', $message, 2);
+            $tags = $parts[0];
+            $remainingMessage = $parts[1];
+            
+            // time-Tag hinzufügen, wenn noch nicht vorhanden
+            if (strpos($tags, 'time=') === false) {
+                return "{$tags};time={$timestamp} {$remainingMessage}";
             }
+            
+            // Ansonsten Nachricht unverändert zurückgeben
+            return $message;
         }
         
-        // Add server-time if supported
-        if ($user->hasCapability('server-time')) {
-            $batchCommand = self::addServerTimeIfSupported($batchCommand, $user);
-        }
+        // Wenn keine Tags vorhanden sind, füge server-time als neues Tag hinzu
+        return "@time={$timestamp} {$message}";
+    }
+    
+    /**
+     * Erstellt einen Batch-Header für eine Gruppe von Nachrichten
+     * 
+     * @param string $type Der Batch-Typ
+     * @param array $params Zusätzliche Parameter für den Batch
+     * @return string Die Batch-ID
+     */
+    public static function createBatch(string $type, array $params = []): string {
+        // Eindeutige Batch-ID generieren
+        $batchId = $type . '-' . uniqid();
         
-        $user->send($batchCommand);
+        // Parameter zum Batch hinzufügen
+        $paramString = implode(' ', $params);
+        if (!empty($paramString)) {
+            $paramString = ' ' . $paramString;
+        }
         
         return $batchId;
     }
     
     /**
-     * Ends an active batch session for a user
+     * Fügt ein Batch-Tag zu einer Nachricht hinzu
      * 
-     * @param User $user The user
-     * @param string $batchId The ID of the batch to end
-     * @return bool True if successful, otherwise false
+     * @param string $message Die Nachricht
+     * @param string $batchId Die Batch-ID
+     * @return string Die modifizierte Nachricht
      */
-    public static function endBatch(User $user, string $batchId): bool {
-        $userId = $user->getId();
-        
-        if (!isset(self::$activeBatches[$userId][$batchId])) {
-            return false;
-        }
-        
-        // Send the BATCH end command to the user
-        $endCommand = "BATCH -{$batchId}";
-        
-        // Add server-time if supported
-        if ($user->hasCapability('server-time')) {
-            $endCommand = self::addServerTimeIfSupported($endCommand, $user);
-        }
-        
-        $user->send($endCommand);
-        
-        // Remove the batch from the list of active batches
-        unset(self::$activeBatches[$userId][$batchId]);
-        
-        // Remove the user from the list if no active batches remain
-        if (empty(self::$activeBatches[$userId])) {
-            unset(self::$activeBatches[$userId]);
-        }
-        
-        return true;
-    }
-    
-    /**
-     * Adds a message to a batch
-     * 
-     * @param User $user The user
-     * @param string $batchId The ID of the batch
-     * @param string $message The message
-     * @param array $additionalTags Additional message tags
-     * @return bool True if successful, otherwise false
-     */
-    public static function addMessageToBatch(User $user, string $batchId, string $message, array $additionalTags = []): bool {
-        $userId = $user->getId();
-        
-        if (!isset(self::$activeBatches[$userId][$batchId])) {
-            return false;
-        }
-        
-        $tags = ['batch' => $batchId];
-        
-        // Add any additional tags
-        if (!empty($additionalTags)) {
-            $tags = array_merge($tags, $additionalTags);
-        }
-        
-        // Add server-time if supported
-        if ($user->hasCapability('server-time') && !isset($tags['time'])) {
-            $tags['time'] = self::formatServerTime();
-        }
-        
-        // Add batch tag to the message
-        $taggedMessage = self::addMessageTags($message, $tags);
-        
-        // Send the tagged message to the user
-        $user->send($taggedMessage);
-        
-        return true;
-    }
-    
-    /**
-     * Checks if a user supports IRCv3 message tags
-     * 
-     * @param User $user The user to check
-     * @return bool True if the user supports message tags
-     */
-    public static function supportsMessageTags(User $user): bool {
-        return $user->hasCapability('message-tags');
-    }
-    
-    /**
-     * Implements the CHATHISTORY functionality (according to IRCv3)
-     * 
-     * @param User $user The user requesting the history
-     * @param Channel $channel The channel whose history is requested
-     * @param int $limit Maximum number of messages
-     * @param int|null $before Messages before this timestamp
-     * @param int|null $after Messages after this timestamp
-     * @return bool True if the history was successfully sent
-     */
-    public static function sendChannelHistory(User $user, Channel $channel, int $limit = 50, ?int $before = null, ?int $after = null): bool {
-        if (!$user->hasCapability('batch') || !$user->hasCapability('chathistory')) {
-            return false;
-        }
-        
-        // Get channel history with timestamp filtering
-        $history = $channel->getMessageHistory($limit);
-        
-        // Apply time filters if specified
-        if ($before !== null || $after !== null) {
-            $filteredHistory = [];
-            foreach ($history as $item) {
-                $msgTime = $item['timestamp'] ?? 0;
-                
-                if (($before === null || $msgTime < $before) && 
-                    ($after === null || $msgTime > $after)) {
-                    $filteredHistory[] = $item;
-                }
-            }
-            $history = $filteredHistory;
-        }
-        
-        if (empty($history)) {
-            return false;
-        }
-        
-        // Start batch
-        $batchId = self::startBatch($user, 'chathistory', [$channel->getName()]);
-        
-        if (empty($batchId)) {
-            return false;
-        }
-        
-        // Sort messages by timestamp (oldest first)
-        usort($history, function ($a, $b) {
-            return ($a['timestamp'] ?? 0) - ($b['timestamp'] ?? 0);
-        });
-        
-        // Send messages in the batch
-        foreach ($history as $historyItem) {
-            $message = $historyItem['message'];
-            $timestamp = $historyItem['timestamp'] ?? null;
-            $sender = $historyItem['sender'] ?? null;
+    public static function addBatchTag(string $message, string $batchId): string {
+        // Wenn die Nachricht bereits Tags hat, füge batch als weiteres Tag hinzu
+        if (substr($message, 0, 1) === '@') {
+            // Tags von der Nachricht trennen
+            $parts = explode(' ', $message, 2);
+            $tags = $parts[0];
+            $remainingMessage = $parts[1];
             
-            $tags = [];
-            
-            // Add timestamp to the message if available
-            if ($timestamp !== null) {
-                $tags['time'] = self::formatServerTime($timestamp);
+            // batch-Tag hinzufügen, wenn noch nicht vorhanden
+            if (strpos($tags, 'batch=') === false) {
+                return "{$tags};batch={$batchId} {$remainingMessage}";
             }
             
-            self::addMessageToBatch($user, $batchId, $message, $tags);
+            // Ansonsten Nachricht unverändert zurückgeben
+            return $message;
         }
         
-        // End batch
-        self::endBatch($user, $batchId);
-        
-        return true;
+        // Wenn keine Tags vorhanden sind, füge batch als neues Tag hinzu
+        return "@batch={$batchId} {$message}";
     }
     
     /**
-     * Send message history for direct messages between users
+     * Fügt account-Tag zu einer Nachricht hinzu, wenn der Benutzer authentifiziert ist
      * 
-     * @param User $requestingUser The user requesting the history
-     * @param User $targetUser The user whose private messages should be retrieved
-     * @param int $limit Maximum number of messages
-     * @param int|null $before Messages before this timestamp
-     * @param int|null $after Messages after this timestamp
-     * @return bool True if the history was successfully sent
+     * @param string $message Die Nachricht
+     * @param User $user Der Benutzer, von dem die Nachricht stammt
+     * @param User $recipient Der Empfänger der Nachricht
+     * @return string Die möglicherweise modifizierte Nachricht mit account-Tag
      */
-    public static function sendPrivateMessageHistory(User $requestingUser, User $targetUser, int $limit = 50, ?int $before = null, ?int $after = null): bool {
-        if (!$requestingUser->hasCapability('batch') || !$requestingUser->hasCapability('chathistory')) {
-            return false;
+    public static function addAccountTagIfSupported(string $message, User $user, User $recipient): string {
+        // Wenn der Empfänger die account-tag Capability nicht unterstützt, Nachricht unverändert zurückgeben
+        if (!$recipient->hasCapability('account-tag')) {
+            return $message;
         }
         
-        // In a real implementation, this would load private message history from storage
-        // For now, return false to indicate no history available
-        return false;
-    }
-    
-    /**
-     * Generates and sends a standardized IRCv3 error message
-     * 
-     * @param User $user The user receiving the error message
-     * @param string $command The command that caused the error
-     * @param string $code The error code (e.g., 'INVALID_PARAMS')
-     * @param string $description A human-readable description of the error
-     * @param string|null $label Message label for labeled-response capability
-     */
-    public static function sendErrorMessage(User $user, string $command, string $code, string $description, ?string $label = null): void {
-        $serverName = $user->getServer()->getConfig()['name'] ?? 'server';
-        $message = ":{$serverName} FAIL {$command} {$code} :{$description}";
-        
-        $tags = [];
-        
-        // Add label if labeled-response is supported
-        if ($label !== null && $user->hasCapability('labeled-response')) {
-            $tags['label'] = $label;
+        // Wenn der Sender nicht authentifiziert ist, Nachricht unverändert zurückgeben
+        if (!$user->isSaslAuthenticated()) {
+            return $message;
         }
         
-        // Add server-time if supported
-        if ($user->hasCapability('server-time')) {
-            $tags['time'] = self::formatServerTime();
-        }
+        // Account-Name des Benutzers ermitteln (hier vereinfacht als Nick)
+        $accountName = $user->getNick();
         
-        // Add tags if any
-        if (!empty($tags)) {
-            $message = self::addMessageTags($message, $tags);
-        }
-        
-        $user->send($message);
-    }
-    
-    /**
-     * Processes an incoming ECHO command according to IRCv3 echo-message
-     * 
-     * @param User $user The user sending the command
-     * @param string $originalMessage The original message
-     */
-    public static function handleEchoMessage(User $user, string $originalMessage): void {
-        if (!$user->hasCapability('echo-message')) {
-            return;
-        }
-        
-        // Parse message tags if present
-        $parsed = self::parseMessageTags($originalMessage);
-        $cleanMessage = $parsed['message'];
-        
-        // Use the actual user mask for the echo
-        $nick = $user->getNick() ?? '*';
-        $ident = $user->getIdent() ?? '*';
-        $host = $user->getCloak() ?? $user->getHost() ?? '*';
-        
-        $echoPrefixed = ":{$nick}!{$ident}@{$host} {$cleanMessage}";
-        
-        $tags = $parsed['tags'];
-        
-        // Add server-time if supported and not already present
-        if ($user->hasCapability('server-time') && !isset($tags['time'])) {
-            $tags['time'] = self::formatServerTime();
-        }
-        
-        // Add tags if any
-        if (!empty($tags)) {
-            $echoPrefixed = self::addMessageTags($echoPrefixed, $tags);
-        }
-        
-        $user->send($echoPrefixed);
-    }
-    
-    /**
-     * Sends a notification for away status changes (IRCv3 away-notify)
-     * 
-     * @param User $user The user who changed away status
-     * @param string|null $awayMessage The away message or null if returning from away
-     * @param Channel|null $channel If specified, notification is sent only to this channel
-     */
-    public static function sendAwayNotification(User $user, ?string $awayMessage, ?Channel $channel = null): void {
-        $server = $user->getServer();
-        $nick = $user->getNick() ?? '*';
-        $userMask = "{$nick}!{$user->getIdent()}@{$user->getCloak()}";
-        
-        // Determine which users should receive the notification
-        $recipients = [];
-        
-        if ($channel !== null) {
-            // Only users in the specified channel
-            $recipients = $channel->getUsers();
-        } else {
-            // All users on the server
-            $recipients = $server->getUsers();
-        }
-        
-        foreach ($recipients as $recipient) {
-            // Skip if it's the same user or the recipient doesn't support away-notify
-            if ($recipient === $user || !$recipient->hasCapability('away-notify')) {
-                continue;
+        // Wenn die Nachricht bereits Tags hat, füge account als weiteres Tag hinzu
+        if (substr($message, 0, 1) === '@') {
+            // Tags von der Nachricht trennen
+            $parts = explode(' ', $message, 2);
+            $tags = $parts[0];
+            $remainingMessage = $parts[1];
+            
+            // account-Tag hinzufügen, wenn noch nicht vorhanden
+            if (strpos($tags, 'account=') === false) {
+                return "{$tags};account={$accountName} {$remainingMessage}";
             }
             
-            if ($awayMessage !== null) {
-                // User is going away
-                $message = ":{$userMask} AWAY :{$awayMessage}";
-            } else {
-                // User is returning from away
-                $message = ":{$userMask} AWAY";
-            }
-            
-            // Add server-time if supported
-            $message = self::addServerTimeIfSupported($message, $recipient);
-            
-            $recipient->send($message);
-        }
-    }
-    
-    /**
-     * Sends an extended JOIN notification (IRCv3 extended-join)
-     * 
-     * @param User $user The user who joined
-     * @param Channel $channel The channel joined
-     * @param string|null $accountName Account name or * if not logged in
-     */
-    public static function sendExtendedJoinNotification(User $user, Channel $channel, ?string $accountName = null): void {
-        $server = $user->getServer();
-        $nick = $user->getNick() ?? '*';
-        $userMask = "{$nick}!{$user->getIdent()}@{$user->getCloak()}";
-        $account = $accountName ?? '*'; // '*' means not logged in
-        $realname = $user->getRealname() ?? '';
-        
-        foreach ($channel->getUsers() as $recipient) {
-            // Skip if it's the same user or the recipient doesn't support extended-join
-            if ($recipient === $user || !$recipient->hasCapability('extended-join')) {
-                continue;
-            }
-            
-            $message = ":{$userMask} JOIN {$channel->getName()} {$account} :{$realname}";
-            
-            // Add server-time if supported
-            $message = self::addServerTimeIfSupported($message, $recipient);
-            
-            $recipient->send($message);
-        }
-    }
-    
-    /**
-     * Handles an inbound message with labeled-response capability
-     * 
-     * @param User $user The user who sent the message
-     * @param array $tags Message tags
-     * @param string $response The response to send
-     */
-    public static function handleLabeledResponse(User $user, array $tags, string $response): void {
-        if (!$user->hasCapability('labeled-response') || !isset($tags['label'])) {
-            // Just send the response without label
-            $user->send($response);
-            return;
+            // Ansonsten Nachricht unverändert zurückgeben
+            return $message;
         }
         
-        // Include the label in the response
-        $label = $tags['label'];
-        $response = self::addMessageTags($response, ['label' => $label]);
-        
-        // Add server-time if supported
-        if ($user->hasCapability('server-time')) {
-            $response = self::addMessageTags($response, ['time' => self::formatServerTime()]);
-        }
-        
-        $user->send($response);
-    }
-    
-    /**
-     * Registers a user capability and notifies clients using cap-notify
-     * 
-     * @param string $capability The capability being added
-     * @param \PhpIrcd\Core\Server $server The server instance
-     */
-    public static function registerCapability(string $capability, \PhpIrcd\Core\Server $server): void {
-        $serverName = $server->getConfig()['name'] ?? 'server';
-        
-        foreach ($server->getUsers() as $user) {
-            if ($user->hasCapability('cap-notify')) {
-                $message = ":{$serverName} CAP * NEW :{$capability}";
-                $message = self::addServerTimeIfSupported($message, $user);
-                $user->send($message);
-            }
-        }
-    }
-    
-    /**
-     * Unregisters a user capability and notifies clients using cap-notify
-     * 
-     * @param string $capability The capability being removed
-     * @param \PhpIrcd\Core\Server $server The server instance
-     */
-    public static function unregisterCapability(string $capability, \PhpIrcd\Core\Server $server): void {
-        $serverName = $server->getConfig()['name'] ?? 'server';
-        
-        foreach ($server->getUsers() as $user) {
-            if ($user->hasCapability('cap-notify')) {
-                $message = ":{$serverName} CAP * DEL :{$capability}";
-                $message = self::addServerTimeIfSupported($message, $user);
-                $user->send($message);
-            }
-        }
-    }
-    
-    /**
-     * Cleanup stale batches (orphaned batch sessions)
-     * To be called periodically
-     * 
-     * @param int $maxAge Maximum age in seconds before a batch is considered stale
-     */
-    public static function cleanupStaleBatches(int $maxAge = 300): void {
-        $now = time();
-        
-        foreach (self::$activeBatches as $userId => $userBatches) {
-            foreach ($userBatches as $batchId => $batch) {
-                $age = $now - ($batch['start_time'] ?? $now);
-                
-                if ($age > $maxAge) {
-                    // Remove the stale batch
-                    unset(self::$activeBatches[$userId][$batchId]);
-                }
-            }
-            
-            // Remove the user if no active batches remain
-            if (empty(self::$activeBatches[$userId])) {
-                unset(self::$activeBatches[$userId]);
-            }
-        }
+        // Wenn keine Tags vorhanden sind, füge account als neues Tag hinzu
+        return "@account={$accountName} {$message}";
     }
 }
