@@ -322,4 +322,32 @@ class IRCv3Helper {
         // Wenn keine Tags vorhanden sind, füge account als neues Tag hinzu
         return "@account={$accountName} {$message}";
     }
+    
+    /**
+     * Sanitizes a message by handling backspace characters correctly
+     * 
+     * @param string $message The message to sanitize
+     * @return string The sanitized message
+     */
+    public static function sanitizeMessage(string $message): string {
+        // Handle backspace characters (0x08 or \b) properly
+        $result = '';
+        $length = strlen($message);
+        
+        for ($i = 0; $i < $length; $i++) {
+            $char = $message[$i];
+            
+            // If it's a backspace and we have characters to delete
+            if ($char === "\x08" && strlen($result) > 0) {
+                // Remove the last character
+                $result = substr($result, 0, -1);
+            } 
+            // Otherwise add the character (unless it's a backspace with nothing to delete)
+            else if ($char !== "\x08") {
+                $result .= $char;
+            }
+        }
+        
+        return $result;
+    }
 }

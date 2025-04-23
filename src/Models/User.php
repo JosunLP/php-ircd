@@ -765,7 +765,7 @@ class User {
     /**
      * Get the remote server name
      * 
-     * @return string|null The name of the remote server
+     * @return string|null The name of the remote server or null if not a remote user
      */
     public function getRemoteServer(): ?string {
         return $this->remoteServer;
@@ -774,9 +774,9 @@ class User {
     /**
      * Set the server instance that created this user
      * 
-     * @param mixed $server The server instance
+     * @param \PhpIrcd\Core\Server $server The server instance
      */
-    public function setServer($server): void {
+    public function setServer(\PhpIrcd\Core\Server $server): void {
         $this->server = $server;
     }
 
@@ -986,32 +986,5 @@ class User {
      */
     public function isUndergoing302Negotiation(): bool {
         return $this->undergoing302Negotiation;
-    }
-
-    /**
-     * Set the server reference
-     * 
-     * @param \PhpIrcd\Core\Server $server The server instance
-     */
-    public function setServer(\PhpIrcd\Core\Server $server): void {
-        $this->server = $server;
-    }
-
-    /**
-     * Get the remote server name
-     * 
-     * @return string|null The name of the remote server or null if not a remote user
-     */
-    public function getRemoteServer(): ?string {
-        return $this->remoteServer;
-    }
-
-    /**
-     * Set the remote server name
-     * 
-     * @param string $serverName The name of the remote server
-     */
-    public function setRemoteServer(string $serverName): void {
-        $this->remoteServer = $serverName;
     }
 }
