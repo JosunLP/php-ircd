@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="" tests="61" assertions="203" errors="0" warnings="0" failures="0" skipped="0" time="171.334247">
+    <testsuite name="Unit" tests="61" assertions="203" errors="0" warnings="0" failures="0" skipped="0" time="171.334247">
+      <testsuite name="Tests\Unit\ChannelTest" file="D:\git\php-ircd\tests\Unit\ChannelTest.php" tests="17" assertions="88" errors="0" warnings="0" failures="0" skipped="0" time="168.198817">
+        <testcase name="testChannelInitialization" class="Tests\Unit\ChannelTest" classname="Tests.Unit.ChannelTest" file="D:\git\php-ircd\tests\Unit\ChannelTest.php" line="64" assertions="6" time="9.919262"/>
+        <testcase name="testAddAndRemoveUser" class="Tests\Unit\ChannelTest" classname="Tests.Unit.ChannelTest" file="D:\git\php-ircd\tests\Unit\ChannelTest.php" line="74" assertions="7" time="9.899225"/>
+        <testcase name="testAddUserAsOperator" class="Tests\Unit\ChannelTest" classname="Tests.Unit.ChannelTest" file="D:\git\php-ircd\tests\Unit\ChannelTest.php" line="92" assertions="2" time="9.891776"/>
+        <testcase name="testSetAndGetTopic" class="Tests\Unit\ChannelTest" classname="Tests.Unit.ChannelTest" file="D:\git\php-ircd\tests\Unit\ChannelTest.php" line="100" assertions="3" time="9.892781"/>
+        <testcase name="testSetAndGetModes" class="Tests\Unit\ChannelTest" classname="Tests.Unit.ChannelTest" file="D:\git\php-ircd\tests\Unit\ChannelTest.php" line="109" assertions="9" time="9.892451"/>
+        <testcase name="testUserModes" class="Tests\Unit\ChannelTest" classname="Tests.Unit.ChannelTest" file="D:\git\php-ircd\tests\Unit\ChannelTest.php" line="134" assertions="10" time="9.894720"/>
+        <testcase name="testBans" class="Tests\Unit\ChannelTest" classname="Tests.Unit.ChannelTest" file="D:\git\php-ircd\tests\Unit\ChannelTest.php" line="173" assertions="6" time="9.894244"/>
+        <testcase name="testBanExceptions" class="Tests\Unit\ChannelTest" classname="Tests.Unit.ChannelTest" file="D:\git\php-ircd\tests\Unit\ChannelTest.php" line="203" assertions="4" time="9.891531"/>
+        <testcase name="testInviteOnly" class="Tests\Unit\ChannelTest" classname="Tests.Unit.ChannelTest" file="D:\git\php-ircd\tests\Unit\ChannelTest.php" line="230" assertions="4" time="9.892418"/>
+        <testcase name="testCanJoin" class="Tests\Unit\ChannelTest" classname="Tests.Unit.ChannelTest" file="D:\git\php-ircd\tests\Unit\ChannelTest.php" line="246" assertions="6" time="9.891248"/>
+        <testcase name="testChannelNameValidation" class="Tests\Unit\ChannelTest" classname="Tests.Unit.ChannelTest" file="D:\git\php-ircd\tests\Unit\ChannelTest.php" line="270" assertions="7" time="9.891324"/>
+        <testcase name="testPermanentChannel" class="Tests\Unit\ChannelTest" classname="Tests.Unit.ChannelTest" file="D:\git\php-ircd\tests\Unit\ChannelTest.php" line="281" assertions="3" time="9.890881"/>
+        <testcase name="testGetKeyAndLimit" class="Tests\Unit\ChannelTest" classname="Tests.Unit.ChannelTest" file="D:\git\php-ircd\tests\Unit\ChannelTest.php" line="292" assertions="2" time="9.889529"/>
+        <testcase name="testMessageHistory" class="Tests\Unit\ChannelTest" classname="Tests.Unit.ChannelTest" file="D:\git\php-ircd\tests\Unit\ChannelTest.php" line="301" assertions="6" time="9.887432"/>
+        <testcase name="testIsEmpty" class="Tests\Unit\ChannelTest" classname="Tests.Unit.ChannelTest" file="D:\git\php-ircd\tests\Unit\ChannelTest.php" line="318" assertions="3" time="9.893954"/>
+        <testcase name="testGetCreationTime" class="Tests\Unit\ChannelTest" classname="Tests.Unit.ChannelTest" file="D:\git\php-ircd\tests\Unit\ChannelTest.php" line="329" assertions="4" time="9.895010"/>
+        <testcase name="testRemoveUserFromModlists" class="Tests\Unit\ChannelTest" classname="Tests.Unit.ChannelTest" file="D:\git\php-ircd\tests\Unit\ChannelTest.php" line="337" assertions="6" time="9.891033"/>
+      </testsuite>
+      <testsuite name="Tests\Unit\ServerTest" file="D:\git\php-ircd\tests\Unit\ServerTest.php" tests="14" assertions="44" errors="0" warnings="0" failures="0" skipped="0" time="0.111860">
+        <testcase name="testServerInitialization" class="Tests\Unit\ServerTest" classname="Tests.Unit.ServerTest" file="D:\git\php-ircd\tests\Unit\ServerTest.php" line="97" assertions="3" time="0.030586"/>
+        <testcase name="testAddAndRemoveUser" class="Tests\Unit\ServerTest" classname="Tests.Unit.ServerTest" file="D:\git\php-ircd\tests\Unit\ServerTest.php" line="104" assertions="3" time="0.014580"/>
+        <testcase name="testAddAndRemoveChannel" class="Tests\Unit\ServerTest" classname="Tests.Unit.ServerTest" file="D:\git\php-ircd\tests\Unit\ServerTest.php" line="129" assertions="5" time="0.008629"/>
+        <testcase name="testGetChannelWithNonExistentChannel" class="Tests\Unit\ServerTest" classname="Tests.Unit.ServerTest" file="D:\git\php-ircd\tests\Unit\ServerTest.php" line="151" assertions="1" time="0.002117"/>
+        <testcase name="testServerCapabilities" class="Tests\Unit\ServerTest" classname="Tests.Unit.ServerTest" file="D:\git\php-ircd\tests\Unit\ServerTest.php" line="157" assertions="16" time="0.002802"/>
+        <testcase name="testIsCapabilitySupported" class="Tests\Unit\ServerTest" classname="Tests.Unit.ServerTest" file="D:\git\php-ircd\tests\Unit\ServerTest.php" line="179" assertions="3" time="0.002755"/>
+        <testcase name="testServerHost" class="Tests\Unit\ServerTest" classname="Tests.Unit.ServerTest" file="D:\git\php-ircd\tests\Unit\ServerTest.php" line="186" assertions="1" time="0.003485"/>
+        <testcase name="testServerStartTime" class="Tests\Unit\ServerTest" classname="Tests.Unit.ServerTest" file="D:\git\php-ircd\tests\Unit\ServerTest.php" line="192" assertions="4" time="0.003387"/>
+        <testcase name="testUpdateConfig" class="Tests\Unit\ServerTest" classname="Tests.Unit.ServerTest" file="D:\git\php-ircd\tests\Unit\ServerTest.php" line="200" assertions="2" time="0.003757"/>
+        <testcase name="testRegisterPermanentChannel" class="Tests\Unit\ServerTest" classname="Tests.Unit.ServerTest" file="D:\git\php-ircd\tests\Unit\ServerTest.php" line="210" assertions="1" time="0.014432"/>
+        <testcase name="testUnregisterPermanentChannel" class="Tests\Unit\ServerTest" classname="Tests.Unit.ServerTest" file="D:\git\php-ircd\tests\Unit\ServerTest.php" line="226" assertions="1" time="0.015142"/>
+        <testcase name="testWhowasHistory" class="Tests\Unit\ServerTest" classname="Tests.Unit.ServerTest" file="D:\git\php-ircd\tests\Unit\ServerTest.php" line="246" assertions="2" time="0.004034"/>
+        <testcase name="testGetConnectionHandler" class="Tests\Unit\ServerTest" classname="Tests.Unit.ServerTest" file="D:\git\php-ircd\tests\Unit\ServerTest.php" line="265" assertions="1" time="0.002813"/>
+        <testcase name="testGetLogger" class="Tests\Unit\ServerTest" classname="Tests.Unit.ServerTest" file="D:\git\php-ircd\tests\Unit\ServerTest.php" line="271" assertions="1" time="0.003342"/>
+      </testsuite>
+      <testsuite name="Tests\Unit\UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" tests="30" assertions="71" errors="0" warnings="0" failures="0" skipped="0" time="3.023570">
+        <testcase name="testUserInitialization" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="27" assertions="7" time="0.000619"/>
+        <testcase name="testSetAndGetNick" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="38" assertions="1" time="0.000475"/>
+        <testcase name="testSetAndGetIdent" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="44" assertions="1" time="0.000402"/>
+        <testcase name="testSetAndGetRealname" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="50" assertions="1" time="0.000302"/>
+        <testcase name="testSetAndGetHost" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="56" assertions="1" time="0.000258"/>
+        <testcase name="testSetAndGetCloak" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="62" assertions="1" time="0.000275"/>
+        <testcase name="testSetAndGetOper" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="68" assertions="2" time="0.000302"/>
+        <testcase name="testUserRegistration" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="77" assertions="1" time="0.000458"/>
+        <testcase name="testUserRegistrationWithInvalidData" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="87" assertions="1" time="0.000299"/>
+        <testcase name="testSetAndGetAway" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="96" assertions="4" time="0.000256"/>
+        <testcase name="testSetAndGetModes" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="107" assertions="5" time="0.000581"/>
+        <testcase name="testSetAndGetPassword" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="121" assertions="1" time="0.000282"/>
+        <testcase name="testSetAndGetSaslStatus" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="127" assertions="2" time="0.000260"/>
+        <testcase name="testCapabilities" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="136" assertions="6" time="0.000266"/>
+        <testcase name="testClearCapabilities" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="153" assertions="3" time="0.000262"/>
+        <testcase name="testSilenceMasks" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="165" assertions="4" time="0.000341"/>
+        <testcase name="testWatchList" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="180" assertions="7" time="0.000271"/>
+        <testcase name="testClearWatchList" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="198" assertions="3" time="0.000258"/>
+        <testcase name="testSetAndGetSaslMechanism" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="210" assertions="1" time="0.000246"/>
+        <testcase name="testSetAndGetRemoteUser" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="216" assertions="2" time="0.000261"/>
+        <testcase name="testGetMask" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="225" assertions="1" time="0.000379"/>
+        <testcase name="testGetId" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="235" assertions="2" time="0.000282"/>
+        <testcase name="testUpdateActivity" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="247" assertions="1" time="1.005993"/>
+        <testcase name="testIsInactive" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="260" assertions="2" time="2.007642"/>
+        <testcase name="testGetConnectTime" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="273" assertions="4" time="0.000647"/>
+        <testcase name="testCapabilityNegotiation" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="281" assertions="2" time="0.000276"/>
+        <testcase name="testUndergoing302Negotiation" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="290" assertions="2" time="0.000264"/>
+        <testcase name="testIsSecureConnection" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="299" assertions="1" time="0.000321"/>
+        <testcase name="testSetSocketTimeout" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="307" assertions="1" time="0.000715"/>
+        <testcase name="testGetSocket" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="314" assertions="1" time="0.000378"/>
+      </testsuite>
+    </testsuite>
+  </testsuite>
+</testsuites>

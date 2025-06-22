@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8"/>
+        <title>Test Documentation</title>
+        <style>
+            body {
+                text-rendering: optimizeLegibility;
+                font-family: Source SansSerif Pro, Arial, sans-serif;
+                font-variant-ligatures: common-ligatures;
+                font-kerning: normal;
+                margin-left: 2rem;
+                background-color: #fff;
+                color: #000;
+            }
+
+            body > ul > li {
+                font-size: larger;
+            }
+
+            h2 {
+                font-size: larger;
+                text-decoration-line: underline;
+                text-decoration-thickness: 2px;
+                margin: 0;
+                padding: 0.5rem 0;
+            }
+
+            ul {
+                list-style: none;
+                margin: 0 0 2rem;
+                padding: 0 0 0 1rem;
+                text-indent: -1rem;
+            }
+
+            .success:before {
+                color: #4e9a06;
+                content: '✓';
+                padding-right: 0.5rem;
+            }
+
+            .defect {
+                color: #a40000;
+            }
+
+            .defect:before {
+                color: #a40000;
+                content: '✗';
+                padding-right: 0.5rem;
+            }
+        </style>
+    </head>
+    <body>
+        <h2>Channel (Tests\Unit\Channel)</h2>
+        <ul>
+            <li class="success">Channel initialization</li>
+            <li class="success">Add and remove user</li>
+            <li class="success">Add user as operator</li>
+            <li class="success">Set and get topic</li>
+            <li class="success">Set and get modes</li>
+            <li class="success">User modes</li>
+            <li class="success">Bans</li>
+            <li class="success">Ban exceptions</li>
+            <li class="success">Invite only</li>
+            <li class="success">Can join</li>
+            <li class="success">Channel name validation</li>
+            <li class="success">Permanent channel</li>
+            <li class="success">Get key and limit</li>
+            <li class="success">Message history</li>
+            <li class="success">Is empty</li>
+            <li class="success">Get creation time</li>
+            <li class="success">Remove user from modlists</li>
+        </ul>
+        <h2>Server (Tests\Unit\Server)</h2>
+        <ul>
+            <li class="success">Server initialization</li>
+            <li class="success">Add and remove user</li>
+            <li class="success">Add and remove channel</li>
+            <li class="success">Get channel with non existent channel</li>
+            <li class="success">Server capabilities</li>
+            <li class="success">Is capability supported</li>
+            <li class="success">Server host</li>
+            <li class="success">Server start time</li>
+            <li class="success">Update config</li>
+            <li class="success">Register permanent channel</li>
+            <li class="success">Unregister permanent channel</li>
+            <li class="success">Whowas history</li>
+            <li class="success">Get connection handler</li>
+            <li class="success">Get logger</li>
+        </ul>
+        <h2>User (Tests\Unit\User)</h2>
+        <ul>
+            <li class="success">User initialization</li>
+            <li class="success">Set and get nick</li>
+            <li class="success">Set and get ident</li>
+            <li class="success">Set and get realname</li>
+            <li class="success">Set and get host</li>
+            <li class="success">Set and get cloak</li>
+            <li class="success">Set and get oper</li>
+            <li class="success">User registration</li>
+            <li class="success">User registration with invalid data</li>
+            <li class="success">Set and get away</li>
+            <li class="success">Set and get modes</li>
+            <li class="success">Set and get password</li>
+            <li class="success">Set and get sasl status</li>
+            <li class="success">Capabilities</li>
+            <li class="success">Clear capabilities</li>
+            <li class="success">Silence masks</li>
+            <li class="success">Watch list</li>
+            <li class="success">Clear watch list</li>
+            <li class="success">Set and get sasl mechanism</li>
+            <li class="success">Set and get remote user</li>
+            <li class="success">Get mask</li>
+            <li class="success">Get id</li>
+            <li class="success">Update activity</li>
+            <li class="success">Is inactive</li>
+            <li class="success">Get connect time</li>
+            <li class="success">Capability negotiation</li>
+            <li class="success">Undergoing 302 negotiation</li>
+            <li class="success">Is secure connection</li>
+            <li class="success">Set socket timeout</li>
+            <li class="success">Get socket</li>
+        </ul>
+    </body>
+</html>

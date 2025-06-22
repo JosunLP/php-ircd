@@ -10,14 +10,14 @@ class Channel {
     private $users = [];
     private $modes = [];
     private $created;
-    
+
     // Channel user modes
     private $operators = [];      // @
     private $voiced = [];         // +
     private $halfops = [];        // %
     private $owners = [];         // ~
     private $protected = [];      // &
-    
+
     // Channel protection
     private $bans = [];
     private $inviteExceptions = [];
@@ -25,40 +25,40 @@ class Channel {
     private $inviteOnly = false;
     private $key = null;
     private $limit = 0;
-    
+
     // Channel persistence
     private $permanent = false;   // New: Flag for permanent channels
-    
+
     /**
      * Stores the message history of the channel
      * Format: [['message' => string, 'timestamp' => int, 'sender' => string], ...]
      * @var array
      */
     private $messageHistory = [];
-    
+
     /**
      * Maximum number of messages to store
      * @var int
      */
     private $historyLimit = 100;
-    
+
     /**
      * Constructor
-     * 
+     *
      * @param string $name The channel name
      */
     public function __construct(string $name) {
         $this->name = $name;
         $this->created = time();
-        
+
         // Set default nt mode (no topic by users, no /NOTICE)
         $this->modes['n'] = true;
         $this->modes['t'] = true;
     }
-    
+
     /**
      * Adds a user to the channel
-     * 
+     *
      * @param User $user The user to be added
      * @param bool $asOperator Optional: Whether the user should be added as an operator
      * @return bool Success of the operation
@@ -67,20 +67,20 @@ class Channel {
         if ($this->hasUser($user)) {
             return false;
         }
-        
+
         $this->users[] = $user;
-        
+
         // If first user or added as operator, mark as OP
         if ($asOperator || count($this->users) === 1) {
             $this->operators[] = $user;
         }
-        
+
         return true;
     }
-    
+
     /**
      * Removes a user from the channel
-     * 
+     *
      * @param User $user The user to be removed
      * @return bool Success of the operation
      */
@@ -89,26 +89,26 @@ class Channel {
         if ($key === false) {
             return false;
         }
-        
+
         unset($this->users[$key]);
         $this->users = array_values($this->users); // Reindex array
-        
+
         // Remove user from all mod lists
         $this->removeUserFromModlists($user);
-        
+
         return true;
     }
-    
+
     /**
      * Removes a user from all mod lists
-     * 
+     *
      * @param User $user The user to be removed
      */
     private function removeUserFromModlists(User $user): void {
         $lists = [
             'operators', 'voiced', 'halfops', 'owners', 'protected'
         ];
-        
+
         foreach ($lists as $list) {
             $key = array_search($user, $this->{$list}, true);
             if ($key !== false) {
@@ -117,29 +117,29 @@ class Channel {
             }
         }
     }
-    
+
     /**
      * Checks if a user is in the channel
-     * 
+     *
      * @param User $user The user to be checked
      * @return bool Whether the user is in the channel
      */
     public function hasUser(User $user): bool {
         return in_array($user, $this->users, true);
     }
-    
+
     /**
      * Returns all users in the channel
-     * 
+     *
      * @return array The users in the channel
      */
     public function getUsers(): array {
         return $this->users;
     }
-    
+
     /**
      * Sets or removes a channel mode
-     * 
+     *
      * @param string $mode The mode letter
      * @param bool $value True to set, False to remove
      * @param mixed $param Optional: Parameter for the mode (e.g., limit number, key)
@@ -149,7 +149,7 @@ class Channel {
             case 'i': // Invite-Only
                 $this->inviteOnly = $value;
                 break;
-                
+
             case 'k': // Key (Password)
                 if ($value && $param !== null) {
                     $this->key = $param;
@@ -157,7 +157,7 @@ class Channel {
                     $this->key = null;
                 }
                 break;
-                
+
             case 'l': // User Limit
                 if ($value && is_numeric($param)) {
                     $this->limit = (int)$param;
@@ -165,7 +165,7 @@ class Channel {
                     $this->limit = 0;
                 }
                 break;
-                
+
             default: // Other modes
                 if ($value) {
                     $this->modes[$mode] = true;
@@ -175,10 +175,10 @@ class Channel {
                 break;
         }
     }
-    
+
     /**
      * Checks if a specific mode is set
-     * 
+     *
      * @param string $mode The mode letter to be checked
      * @return bool Whether the mode is set
      */
@@ -194,61 +194,58 @@ class Channel {
                 return isset($this->modes[$mode]);
         }
     }
-    
+
     /**
      * Returns all simple modes as a string
-     * 
+     *
      * @return string The modes as a string
      */
     public function getModeString(): string {
         $modeStr = implode('', array_keys($this->modes));
-        
+
         if ($this->inviteOnly) {
             $modeStr .= 'i';
         }
-        
+
         if ($this->key !== null) {
             $modeStr .= 'k';
         }
-        
+
         if ($this->limit > 0) {
             $modeStr .= 'l';
         }
-        
+
         return $modeStr;
     }
-    
+
     /**
-     * Returns all mode parameters as an array
-     * 
-     * @return array The mode parameters
+     * Returns all mode parameters as an associative array
+     *
+     * @return array The mode parameters (e.g., ['k' => 'key', 'l' => 10])
      */
     public function getModeParams(): array {
         $params = [];
-        
-        if ($this->key !== null) {
-            $params[] = $this->key;
+        if ($this->hasMode('k')) {
+            $params['k'] = $this->key;
         }
-        
-        if ($this->limit > 0) {
-            $params[] = (string)$this->limit;
+        if ($this->hasMode('l')) {
+            $params['l'] = $this->limit;
         }
-        
         return $params;
     }
-    
+
     /**
      * Returns the channel name
-     * 
+     *
      * @return string The channel name
      */
     public function getName(): string {
         return $this->name;
     }
-    
+
     /**
      * Sets the topic
-     * 
+     *
      * @param string $topic The new topic
      * @param string $setBy Who set the topic
      */
@@ -257,47 +254,47 @@ class Channel {
         $this->topicSetBy = $setBy;
         $this->topicSetTime = time();
     }
-    
+
     /**
      * Returns the topic
-     * 
+     *
      * @return string|null The topic or null if none is set
      */
     public function getTopic(): ?string {
         return $this->topic;
     }
-    
+
     /**
      * Returns who set the topic
-     * 
+     *
      * @return string|null The nickname or null if no topic is set
      */
     public function getTopicSetBy(): ?string {
         return $this->topicSetBy;
     }
-    
+
     /**
      * Returns when the topic was set
-     * 
+     *
      * @return int The Unix timestamp or 0 if no topic is set
      */
     public function getTopicSetTime(): int {
         return $this->topicSetTime;
     }
-    
+
     /**
      * Checks if a user has operator status
-     * 
+     *
      * @param User $user The user to be checked
      * @return bool Whether the user is an operator
      */
     public function isOperator(User $user): bool {
         return in_array($user, $this->operators, true);
     }
-    
+
     /**
      * Sets or removes the operator status of a user
-     * 
+     *
      * @param User $user The user
      * @param bool $value True to set, False to remove
      */
@@ -310,20 +307,20 @@ class Channel {
             $this->operators = array_values($this->operators);
         }
     }
-    
+
     /**
      * Checks if a user has voice status
-     * 
+     *
      * @param User $user The user to be checked
      * @return bool Whether the user has voice
      */
     public function isVoiced(User $user): bool {
         return in_array($user, $this->voiced, true);
     }
-    
+
     /**
      * Sets or removes the voice status of a user
-     * 
+     *
      * @param User $user The user
      * @param bool $value True to set, False to remove
      */
@@ -336,20 +333,20 @@ class Channel {
             $this->voiced = array_values($this->voiced);
         }
     }
-    
+
     /**
      * Checks if a user has owner status (~)
-     * 
+     *
      * @param User $user The user to be checked
      * @return bool Whether the user is an owner
      */
     public function isOwner(User $user): bool {
         return in_array($user, $this->owners, true);
     }
-    
+
     /**
      * Sets or removes the owner status of a user
-     * 
+     *
      * @param User $user The user
      * @param bool $value True to set, False to remove
      */
@@ -362,20 +359,20 @@ class Channel {
             $this->owners = array_values($this->owners);
         }
     }
-    
+
     /**
      * Checks if a user has protected status (&)
-     * 
+     *
      * @param User $user The user to be checked
      * @return bool Whether the user is protected
      */
     public function isProtected(User $user): bool {
         return in_array($user, $this->protected, true);
     }
-    
+
     /**
      * Sets or removes the protected status of a user
-     * 
+     *
      * @param User $user The user
      * @param bool $value True to set, False to remove
      */
@@ -388,20 +385,20 @@ class Channel {
             $this->protected = array_values($this->protected);
         }
     }
-    
+
     /**
      * Checks if a user has halfop status (%)
-     * 
+     *
      * @param User $user The user to be checked
      * @return bool Whether the user is a halfop
      */
     public function isHalfop(User $user): bool {
         return in_array($user, $this->halfops, true);
     }
-    
+
     /**
      * Sets or removes the halfop status of a user
-     * 
+     *
      * @param User $user The user
      * @param bool $value True to set, False to remove
      */
@@ -414,66 +411,60 @@ class Channel {
             $this->halfops = array_values($this->halfops);
         }
     }
-    
+
     /**
      * Adds a ban
-     * 
-     * @param string $mask The ban mask (e.g., *!*@*.example.com)
-     * @param string $by Who set the ban
-     * @return bool Success of the operation
+     *
+     * @param string $mask The ban mask
+     * @param string $by The user who set the ban
+     * @return bool Success
      */
     public function addBan(string $mask, string $by): bool {
-        if (in_array($mask, array_column($this->bans, 'mask'))) {
-            return false;
+        if (!in_array($mask, $this->bans, true)) {
+            $this->bans[] = $mask;
+            return true;
         }
-        
-        $this->bans[] = [
-            'mask' => $mask,
-            'by' => $by,
-            'time' => time()
-        ];
-        
-        return true;
+        return false;
     }
-    
+
     /**
      * Removes a ban
-     * 
+     *
      * @param string $mask The ban mask to be removed
      * @return bool Success of the operation
      */
     public function removeBan(string $mask): bool {
         foreach ($this->bans as $key => $ban) {
-            if ($ban['mask'] === $mask) {
+            if ($ban === $mask) {
                 unset($this->bans[$key]);
                 $this->bans = array_values($this->bans);
                 return true;
             }
         }
-        
+
         return false;
     }
-    
+
     /**
      * Returns all bans
-     * 
+     *
      * @return array The bans
      */
     public function getBans(): array {
         return $this->bans;
     }
-    
+
     /**
      * Checks if a user is banned
-     * 
+     *
      * @param User $user The user to be checked
      * @return bool Whether the user is banned
      */
     public function isBanned(User $user): bool {
         $hostmask = $user->getNick() . '!' . $user->getIdent() . '@' . $user->getCloak();
-        
+
         foreach ($this->bans as $ban) {
-            if ($this->matchesMask($hostmask, $ban['mask'])) {
+            if ($this->matchesMask($hostmask, $ban)) {
                 // Check if there is a ban exception
                 if ($this->hasExceptionFor($user)) {
                     return false;
@@ -481,127 +472,119 @@ class Channel {
                 return true;
             }
         }
-        
+
         return false;
     }
-    
+
     /**
      * Checks if a user has a ban exception
-     * 
+     *
      * @param User $user The user to be checked
      * @return bool Whether the user has an exception
      */
     public function hasExceptionFor(User $user): bool {
         $hostmask = $user->getNick() . '!' . $user->getIdent() . '@' . $user->getCloak();
-        
+
         foreach ($this->banExceptions as $exception) {
-            if ($this->matchesMask($hostmask, $exception['mask'])) {
+            if ($this->matchesMask($hostmask, $exception)) {
                 return true;
             }
         }
-        
+
         return false;
     }
-    
+
     /**
      * Checks if a hostmask matches a mask
-     * 
+     *
      * @param string $hostmask The hostmask to be checked
      * @param string $mask The mask
      * @return bool Whether the hostmask matches the mask
      */
     private function matchesMask(string $hostmask, string $mask): bool {
-        $regex = '/^' . str_replace(['*', '?'], ['.*', '.'], preg_quote($mask, '/')) . '$/';
-        return (bool)preg_match($regex, $hostmask);
+        // Convert IRC wildcards to regex patterns
+        $pattern = str_replace(['*', '?'], ['.*', '.'], $mask);
+        $pattern = '/^' . $pattern . '$/i'; // Case insensitive
+        return (bool)preg_match($pattern, $hostmask);
     }
-    
+
     /**
      * Adds a ban exception
-     * 
+     *
      * @param string $mask The exception mask
-     * @param string $by Who set the exception
-     * @return bool Success of the operation
+     * @param string $by The user who set the exception
+     * @return bool Success
      */
     public function addBanException(string $mask, string $by): bool {
-        if (in_array($mask, array_column($this->banExceptions, 'mask'))) {
-            return false;
+        if (!in_array($mask, $this->banExceptions, true)) {
+            $this->banExceptions[] = $mask;
+            return true;
         }
-        
-        $this->banExceptions[] = [
-            'mask' => $mask,
-            'by' => $by,
-            'time' => time()
-        ];
-        
-        return true;
+        return false;
     }
-    
+
     /**
      * Removes a ban exception
-     * 
+     *
      * @param string $mask The exception mask to be removed
      * @return bool Success of the operation
      */
     public function removeBanException(string $mask): bool {
         foreach ($this->banExceptions as $key => $exception) {
-            if ($exception['mask'] === $mask) {
+            if ($exception === $mask) {
                 unset($this->banExceptions[$key]);
                 $this->banExceptions = array_values($this->banExceptions);
                 return true;
             }
         }
-        
+
         return false;
     }
-    
+
     /**
      * Returns all ban exceptions
-     * 
+     *
      * @return array The ban exceptions
      */
     public function getBanExceptions(): array {
         return $this->banExceptions;
     }
-    
+
+    /**
+     * Returns whether the channel is invite-only
+     *
+     * @return bool
+     */
+    public function isInviteOnly(): bool {
+        return $this->inviteOnly;
+    }
+
     /**
      * Checks if a user can join the channel
-     * 
-     * @param User $user The user to be checked
-     * @param string|null $key Optional: The key provided by the user
-     * @return bool Whether the user can join
+     *
+     * @param User $user
+     * @param string|null $key
+     * @return bool
      */
     public function canJoin(User $user, ?string $key = null): bool {
-        // If the user was explicitly invited, always allow (overrides all other restrictions)
-        if ($this->isInvited($user)) {
-            return true;
-        }
-        
-        // Check if the user is banned (and has no exception)
-        if ($this->isBanned($user)) {
+        if ($this->isInviteOnly() && !$this->isInvited($user)) {
             return false;
         }
-        
-        // Check if the channel is full
-        if ($this->limit > 0 && count($this->users) >= $this->limit) {
+        if ($this->hasMode('k') && $this->key !== null && $this->key !== $key) {
             return false;
         }
-        
-        // Check if the channel is invite-only
-        if ($this->inviteOnly) {
+        if ($this->hasMode('l') && $this->limit > 0 && count($this->users) >= $this->limit) {
             return false;
         }
-        
-        // Check if a key is required
-        if ($this->key !== null && $key !== $this->key) {
+        if ($this->isBanned($user) && !$this->hasExceptionFor($user)) {
             return false;
         }
-        
         return true;
     }
-    
+
     /**
      * Invites a user to the channel
-     * 
+     *
      * @param string $mask The invitation mask
      * @param string $by Who issued the invitation
      * @return bool Success of the operation
@@ -610,25 +593,25 @@ class Channel {
         if (in_array($mask, array_column($this->inviteExceptions, 'mask'))) {
             return false;
         }
-        
+
         $this->inviteExceptions[] = [
             'mask' => $mask,
             'by' => $by,
             'time' => time()
         ];
-        
+
         return true;
     }
-    
+
     /**
      * Removes an invite exception
-     * 
+     *
      * @param string $mask The invitation mask to be removed
      * @return bool Success of the operation
      */
     public function removeInviteException(string $mask): bool {
         $found = false;
-        
+
         foreach ($this->inviteExceptions as $key => $exception) {
             if ($exception['mask'] === $mask) {
                 unset($this->inviteExceptions[$key]);
@@ -636,106 +619,92 @@ class Channel {
                 // Weitersuchen, um alle Vorkommen zu entfernen
             }
         }
-        
+
         // Array neu indizieren
         if ($found) {
             $this->inviteExceptions = array_values($this->inviteExceptions);
         }
-        
+
         return $found;
     }
-    
+
     /**
      * Checks if a user is invited
-     * 
+     *
      * @param User $user The user to be checked
      * @return bool Whether the user is invited
      */
     public function isInvited(User $user): bool {
         $hostmask = $user->getNick() . '!' . $user->getIdent() . '@' . $user->getCloak();
-        
+
         foreach ($this->inviteExceptions as $invite) {
             if ($this->matchesMask($hostmask, $invite['mask'])) {
                 return true;
             }
         }
-        
+
         return false;
     }
-    
+
     /**
      * Returns when the channel was created
-     * 
+     *
      * @return int The Unix timestamp
      */
     public function getCreationTime(): int {
         return $this->created;
     }
-    
+
     /**
-     * Checks if a channel name is valid
-     * 
-     * @param string $name The channel name to be checked
-     * @return bool Whether the channel name is valid
+     * Validates a channel name according to IRC rules
+     *
+     * @param string $name
+     * @return bool
      */
     public static function isValidChannelName(string $name): bool {
-        // Channel must start with # or &
-        if (!in_array($name[0], ['#', '&'])) {
-            return false;
-        }
-        
-        // Channel name must not contain spaces, commas, or control characters
-        if (preg_match('/[\s,\x00-\x1F]/', $name)) {
-            return false;
-        }
-        
-        // Channel name must not exceed 50 characters
-        if (strlen($name) > 50) {
-            return false;
-        }
-        
-        return true;
+        // Must start with #, &, +, or ! and be at least 2 chars
+        return (bool)preg_match('/^[#&!+][^\s,:\x00-\x1F\x7F]{1,49}$/', $name);
     }
-    
+
     /**
      * Sets the permanence status of the channel
-     * 
+     *
      * @param bool $permanent True if the channel should be permanent
      */
     public function setPermanent(bool $permanent): void {
         $this->permanent = $permanent;
     }
-    
+
     /**
      * Checks if the channel is permanent
-     * 
+     *
      * @return bool Whether the channel is permanent
      */
     public function isPermanent(): bool {
         return $this->permanent;
     }
-    
+
     /**
      * Returns the key of the channel if set
-     * 
+     *
      * @return string|null The key or null if none is set
      */
     public function getKey(): ?string {
         return $this->key;
     }
-    
+
     /**
      * Returns the user limit of the channel if set
-     * 
+     *
      * @return int The user limit or 0 if none is set
      */
     public function getLimit(): int {
         return $this->limit;
     }
-    
+
     /**
      * Adds a message to the channel history
-     * 
+     *
      * @param string $message The full message
      * @param string $sender The sender of the message (nickname)
      * @param int|null $timestamp The timestamp or null for current time
@@ -744,50 +713,50 @@ class Channel {
         if ($timestamp === null) {
             $timestamp = time();
         }
-        
+
         // Add new message to history
         $this->messageHistory[] = [
             'message' => $message,
             'timestamp' => $timestamp,
             'sender' => $sender
         ];
-        
+
         // Remove oldest message if limit is reached
         if (count($this->messageHistory) > $this->historyLimit) {
             array_shift($this->messageHistory);
         }
     }
-    
+
     /**
      * Returns the message history
-     * 
+     *
      * @param int $limit Maximum number of messages to return
      * @return array The message history
      */
     public function getMessageHistory(int $limit = 50): array {
         $limit = min($limit, count($this->messageHistory));
-        
+
         // Return the latest $limit messages (in chronological order)
         return array_slice($this->messageHistory, -$limit);
     }
-    
+
     /**
      * Sets the limit for the message history
-     * 
+     *
      * @param int $limit The new limit
      */
     public function setHistoryLimit(int $limit): void {
         $this->historyLimit = max(0, $limit);
-        
+
         // Check if messages need to be removed after changing the limit
         while (count($this->messageHistory) > $this->historyLimit) {
             array_shift($this->messageHistory);
         }
     }
-    
+
     /**
      * Checks if the channel has no users left
-     * 
+     *
      * @return bool Whether the channel is empty
      */
     public function isEmpty(): bool {

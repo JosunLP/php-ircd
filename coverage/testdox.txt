@@ -1,0 +1,67 @@
+Channel (Tests\Unit\Channel)
+ [ ] Channel initialization
+ [ ] Add and remove user
+ [ ] Add user as operator
+ [ ] Set and get topic
+ [ ] Set and get modes
+ [ ] User modes
+ [ ] Bans
+ [ ] Ban exceptions
+ [ ] Invite only
+ [ ] Can join
+ [ ] Channel name validation
+ [ ] Permanent channel
+ [ ] Get key and limit
+ [ ] Message history
+ [ ] Is empty
+ [ ] Get creation time
+ [ ] Remove user from modlists
+
+Server (Tests\Unit\Server)
+ [x] Server initialization
+ [ ] Add and remove user
+ [x] Add and remove channel
+ [x] Get channel with non existent channel
+ [ ] Server capabilities
+ [x] Is capability supported
+ [ ] Server host
+ [x] Server start time
+ [ ] Update config
+ [ ] Register permanent channel
+ [ ] Unregister permanent channel
+ [ ] Whowas history
+ [x] Get connection handler
+ [x] Get logger
+
+User (Tests\Unit\User)
+ [x] User initialization
+ [x] Set and get nick
+ [x] Set and get ident
+ [x] Set and get realname
+ [x] Set and get host
+ [x] Set and get cloak
+ [x] Set and get oper
+ [x] User registration
+ [x] User registration with invalid data
+ [x] Set and get away
+ [x] Set and get modes
+ [x] Set and get password
+ [x] Set and get sasl status
+ [x] Capabilities
+ [x] Clear capabilities
+ [x] Silence masks
+ [x] Watch list
+ [x] Clear watch list
+ [x] Set and get sasl mechanism
+ [x] Set and get remote user
+ [x] Get mask
+ [ ] Get id
+ [x] Update activity
+ [ ] Is inactive
+ [x] Get connect time
+ [x] Capability negotiation
+ [x] Undergoing 302 negotiation
+ [x] Is secure connection
+ [x] Set socket timeout
+ [x] Get socket
+

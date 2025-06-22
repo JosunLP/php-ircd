@@ -1,72 +1,372 @@
 # PHP-IRCd
 
-An IRC server written in sloppy PHP.
+Ein moderner IRC-Server in PHP 8.0+ mit umfassender IRCv3-Unterstützung, Web-Interface und erweiterten Features.
 
-Various basic features are implemented
-such as mode and membership tracking and some /OPER commands.
+## 🚀 Features
 
-The latest commits here require PHP 8.
-See below table for older PHP versions.
+### Core IRC Features
 
-## Codebase Documentation
+- ✅ Vollständige IRC-Protokoll-Unterstützung (RFC 1459, RFC 2812)
+- ✅ Benutzer-Registrierung und -Verwaltung
+- ✅ Kanal-Management mit Modi und Berechtigungen
+- ✅ Operator-Befehle und -Rechte
+- ✅ Ban/Invite-System
+- ✅ Topic-Management
+- ✅ Private Nachrichten
+- ✅ CTCP-Unterstützung
 
-PHP-IRCd is an IRC server written in PHP with the following characteristics:
+### IRCv3 Features
 
-### Structure
+- ✅ **server-time** - Zeitstempel in Nachrichten
+- ✅ **echo-message** - Echo der eigenen Nachrichten
+- ✅ **extended-join** - Erweiterte JOIN-Befehle
+- ✅ **chathistory** - Kanal-Nachrichtenhistorie
+- ✅ **batch** - Nachrichtenbündelung
+- ✅ **message-tags** - IRCv3-Nachrichten-Tags
+- ✅ **account-notify** - Konto-Änderungsbenachrichtigungen
+- ✅ **away-notify** - Away-Status-Benachrichtigungen
+- ✅ **cap-notify** - Capability-Änderungsbenachrichtigungen
+- ✅ **chghost** - Hostname-Änderungsbenachrichtigungen
+- ✅ **multi-prefix** - Mehrere Präfixe in NAMES
+- ✅ **userhost-in-names** - Vollständige Hostmasken in NAMES
+- ✅ **invite-notify** - Einladungsbenachrichtigungen
+- ✅ **account-tag** - Account-Tags in Nachrichten
+- ✅ **SASL-Authentifizierung** - PLAIN, EXTERNAL, SCRAM-SHA-1, SCRAM-SHA-256
 
-- `src/Commands/`: IRC commands (JOIN, NICK, PRIVMSG etc.)
-- `src/Core/`: Core functionality (Server, Configuration)
-- `src/Handlers/`: Connection management
-- `src/Models/`: Data models (Users, Channels)
-- `src/Utils/`: Helper functions (Logger)
-- `src/Web/`: Web interface for the IRC server
+### Erweiterte Features
 
-### Installation and Startup
+- ✅ **Web-Interface** - Browser-basierte IRC-Oberfläche
+- ✅ **SSL/TLS-Unterstützung** - Sichere Verbindungen
+- ✅ **IP-Filtering** - Whitelist/Blacklist-System
+- ✅ **Hostname-Cloaking** - Verschleierung von Hostnamen
+- ✅ **Persistente Kanäle** - Kanäle überleben Server-Neustarts
+- ✅ **WATCH-System** - Benutzer-Überwachung
+- ✅ **SILENCE-System** - Benutzer-Stummschaltung
+- ✅ **WHOWAS-Historie** - Benutzer-Historie
+- ✅ **Server-zu-Server-Verbindungen** - Netzwerk-Support
+- ✅ **Umfassende Protokollierung** - Detaillierte Logs
+- ✅ **Konfigurationsvalidierung** - Automatische Konfigurationsprüfung
 
-1. PHP 8.0 or higher is required
-2. Install dependencies: `composer install`
-3. Start server: `php index.php` or `server.bat` (Windows)
+### Sicherheitsfeatures
 
-### Configuration
+- ✅ **Input-Validierung** - Umfassende Eingabevalidierung
+- ✅ **Input-Sanitization** - Eingabebereinigung
+- ✅ **Berechtigungssystem** - Granulare Berechtigungen
+- ✅ **Error-Handling** - Zentrale Fehlerbehandlung
+- ✅ **Rate-Limiting** - Schutz vor Spam
+- ✅ **Reservierte Nicknames** - Schutz vor Missbrauch
 
-Configuration can be customized through the `config.legacy.php` file or by creating your own configuration file. The most important settings are:
+## 📋 Voraussetzungen
 
-- Server name and network
-- Port (default: 6667)
-- Binding IP (default: 0.0.0.0)
-- Maximum number of users
-- IRC operators
+- **PHP 8.0 oder höher**
+- **Composer** für Dependency Management
+- **OpenSSL-Extension** (für SSL/TLS)
+- **Socket-Extension** (standardmäßig in PHP enthalten)
 
-### Features
+## 🛠️ Installation
 
-- Basic IRC commands
-- Channel management (create, join, leave)
-- User management (registration, nickname change)
-- Operator commands
-- Web interface for easy usage
-- Configurable Message of the Day (MOTD)
+### 1. Repository klonen
 
-## History
+```bash
+git clone https://github.com/your-repo/php-ircd.git
+cd php-ircd
+```
 
-This codebase was created during my high school career
-and first uploaded to SourceForge in April 2008
-(when I was ~15 years old).
-Originally, the code targetted PHP 5.2.0 on Windows.
+### 2. Dependencies installieren
 
-It was not good code.
+```bash
+composer install
+```
 
-I don't support this project, but
-since then several people have made contributions
-to work on some of the bugs or support newer PHP versions.
+### 3. Konfiguration anpassen
 
-Here are some permalinks into the different snapshots:
+Die Konfigurationsdatei `config.php` nach Ihren Bedürfnissen anpassen:
 
-| Date          | Description          | Contributor                                                  | Tree                                                                                         |
-|---------------|----------------------|--------------------------------------------------------------|----------------------------------------------------------------------------------------------|
-| April 2008    | Initial commit       | @danopia                                                     | [5a03029](https://github.com/danopia/php-ircd/tree/5a03029e20240ef5c8abfa3595de48caa59f8dd6) |
-| June 2008     | Final feature commit | @danopia                                                     | [137458a](https://github.com/danopia/php-ircd/tree/137458aeaea5a25cf3b7b65c55e1c046594a84cd) |
-| December 2012 | Typo/formatting      | [@zhaofengli](https://github.com/danopia/php-ircd/pull/1)    | [49160cb](https://github.com/danopia/php-ircd/tree/49160cbe56b25401c907f7cd30f1027a7e480940) |
-| March 2014    | Refactoring          | [@snacsnoc](https://github.com/danopia/php-ircd/pull/3)      | [e64cd3f](https://github.com/danopia/php-ircd/tree/e64cd3fb55ee76299cdfcb1915212e022f2f4038) |
-| January 2019  | Typo                 | [@avram](https://github.com/danopia/php-ircd/pull/4)         | [b9db16e](https://github.com/danopia/php-ircd/tree/b9db16e83476cffc0ed5fec60010f99fd7ca119a) |
-| July 2020     | Support PHP 7.4      | [@henrikhjelm](https://github.com/danopia/php-ircd/issues/5) | [e9cbb9a](https://github.com/danopia/php-ircd/tree/e9cbb9a6ed84451db725916bf46103b610729d26) |
-| July 2021     | **Require** PHP 8    | [@JosunLP](https://github.com/danopia/php-ircd/pull/8)       | [b100861](https://github.com/danopia/php-ircd/tree/b100861dfca311c6e2996cbc1f317c15121006ab) |
+```php
+$config = [
+    'name' => 'MeinIRC-Server',
+    'port' => 6667,
+    'bind_ip' => '0.0.0.0',  // Für externe Verbindungen
+    'max_users' => 100,
+    'ssl_enabled' => false,   // Auf true setzen für SSL
+    'cap_enabled' => true,    // IRCv3-Features aktivieren
+    // ... weitere Einstellungen
+];
+```
+
+### 4. Server starten
+
+#### Windows
+
+```bash
+server.bat
+```
+
+#### Linux/macOS
+
+```bash
+php index.php
+```
+
+#### Als Daemon (Linux)
+
+```bash
+nohup php index.php > ircd.log 2>&1 &
+```
+
+## 🌐 Web-Interface
+
+Das Web-Interface ist unter `http://localhost/index.php` verfügbar und bietet:
+
+- **Live-Chat** - Echtzeit-Nachrichten
+- **Benutzerliste** - Aktuelle Benutzer
+- **Kanal-Management** - Kanäle erstellen und verwalten
+- **Server-Status** - Server-Informationen
+- **Einfache Bedienung** - Kein IRC-Client erforderlich
+
+## 🧪 Tests
+
+### Tests ausführen
+
+```bash
+# Alle Tests
+./vendor/bin/phpunit
+
+# Spezifische Tests
+./vendor/bin/phpunit tests/Unit/ServerTest.php
+
+# Mit Code-Coverage
+./vendor/bin/phpunit --coverage-html coverage/html
+```
+
+### Test-Coverage
+
+- **Server-Klasse** - Vollständige Server-Funktionalität
+- **User-Model** - Benutzer-Management
+- **Channel-Model** - Kanal-Management
+- **Commands** - IRC-Befehle
+- **Error-Handling** - Fehlerbehandlung
+
+## 📖 Dokumentation
+
+### API-Dokumentation
+
+Vollständige API-Dokumentation finden Sie in [`docs/API.md`](docs/API.md).
+
+### Konfiguration
+
+Detaillierte Konfigurationsoptionen:
+
+```php
+$config = [
+    // Server-Grundlagen
+    'name' => 'localhost',              // Server-Name
+    'net' => 'Lokaler-IRC',             // Netzwerk-Name
+    'port' => 6667,                     // IRC-Port
+    'bind_ip' => '127.0.0.1',          // Bind-IP
+    'max_users' => 50,                  // Maximale Benutzer
+
+    // SSL/TLS
+    'ssl_enabled' => false,             // SSL aktivieren
+    'ssl_cert' => 'path/to/cert.pem',   // SSL-Zertifikat
+    'ssl_key' => 'path/to/key.pem',     // SSL-Schlüssel
+
+    // IRCv3-Features
+    'cap_enabled' => true,              // IRCv3 aktivieren
+    'ircv3_features' => [               // IRCv3-Features
+        'server-time' => true,
+        'echo-message' => true,
+        'extended-join' => true,
+        'chathistory' => true,
+        // ... weitere Features
+    ],
+
+    // SASL
+    'sasl_enabled' => true,             // SASL aktivieren
+    'sasl_mechanisms' => ['PLAIN', 'EXTERNAL'],
+
+    // Sicherheit
+    'ip_filtering_enabled' => false,    // IP-Filtering
+    'ip_whitelist' => [],               // IP-Whitelist
+    'ip_blacklist' => [],               // IP-Blacklist
+
+    // Logging
+    'log_level' => 2,                   // Log-Level (0-3)
+    'log_file' => 'ircd.log',           // Log-Datei
+    'log_to_console' => true,           // Konsolen-Logging
+
+    // Operatoren
+    'opers' => [                        // IRC-Operatoren
+        'admin' => 'password'
+    ],
+
+    // Speicher
+    'storage_dir' => 'storage',         // Speicher-Verzeichnis
+    'chathistory_max_messages' => 100,  // Chat-Historie-Limit
+];
+```
+
+## 🔧 Erweiterte Konfiguration
+
+### SSL/TLS aktivieren
+
+```php
+$config['ssl_enabled'] = true;
+$config['ssl_cert'] = '/path/to/certificate.pem';
+$config['ssl_key'] = '/path/to/private.key';
+```
+
+### IP-Filtering
+
+```php
+$config['ip_filtering_enabled'] = true;
+$config['ip_filter_mode'] = 'blacklist'; // oder 'whitelist'
+$config['ip_blacklist'] = ['192.168.1.100', '10.0.0.0/8'];
+```
+
+### Server-zu-Server-Verbindungen
+
+```php
+$config['enable_server_links'] = true;
+$config['server_password'] = 'secret_password';
+$config['auto_connect_servers'] = [
+    'server2' => [
+        'host' => 'server2.example.com',
+        'port' => 6667,
+        'password' => 'link_password',
+        'ssl' => false
+    ]
+];
+```
+
+## 🚨 Sicherheitshinweise
+
+### Produktionsumgebung
+
+1. **SSL/TLS aktivieren** für sichere Verbindungen
+2. **Starke Passwörter** für Operatoren verwenden
+3. **IP-Filtering** für unerwünschte Verbindungen
+4. **Log-Level** auf 1 oder 2 setzen
+5. **Firewall** konfigurieren
+6. **Regelmäßige Updates** durchführen
+
+### Entwicklungsumgebung
+
+1. **Debug-Modus** aktivieren für detaillierte Logs
+2. **Log-Level** auf 3 setzen
+3. **Test-Daten** verwenden
+4. **Unit-Tests** vor Deployment ausführen
+
+## 🐛 Troubleshooting
+
+### Häufige Probleme
+
+#### Server startet nicht
+
+```bash
+# Port prüfen
+netstat -an | grep 6667
+
+# Firewall prüfen
+sudo ufw status
+
+# Logs prüfen
+tail -f ircd.log
+```
+
+#### SSL-Fehler
+
+```bash
+# Zertifikat prüfen
+openssl x509 -in cert.pem -text -noout
+
+# Berechtigungen prüfen
+ls -la cert.pem key.pem
+```
+
+#### Verbindungsprobleme
+
+```bash
+# Socket-Status prüfen
+php -m | grep socket
+
+# OpenSSL-Status prüfen
+php -m | grep openssl
+```
+
+### Debug-Modus
+
+```php
+$config['debug_mode'] = true;
+$config['log_level'] = 3;
+```
+
+## 🤝 Beitragen
+
+Wir freuen uns über Beiträge! Bitte beachten Sie:
+
+1. **Code-Stil** - PSR-12 befolgen
+2. **Tests** - Neue Features testen
+3. **Dokumentation** - API-Docs aktualisieren
+4. **Error-Handling** - ErrorHandler verwenden
+5. **Validierung** - Input validieren
+6. **IRC-Standards** - RFCs befolgen
+
+### Entwicklungsumgebung einrichten
+
+```bash
+# Repository klonen
+git clone https://github.com/your-repo/php-ircd.git
+cd php-ircd
+
+# Dependencies installieren
+composer install
+
+# Tests ausführen
+./vendor/bin/phpunit
+
+# Code-Coverage generieren
+./vendor/bin/phpunit --coverage-html coverage/html
+```
+
+## 📄 Lizenz
+
+Dieses Projekt steht unter der MIT-Lizenz. Siehe [LICENSE](LICENSE) für Details.
+
+## 🙏 Danksagungen
+
+- **Daniel Danopia** - Original-Autor (2008)
+- **Zhaofeng Li** - Beiträge
+- **Easton Elliott** - Refactoring
+- **Avram Lyon** - Verbesserungen
+- **henrikhjelm** - PHP 7.4 Support
+- **Jonas Pfalzgraf (JosunLP)** - PHP 8 Support
+
+## 📞 Support
+
+- **Issues**: [GitHub Issues](https://github.com/your-repo/php-ircd/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/your-repo/php-ircd/discussions)
+- **Wiki**: [GitHub Wiki](https://github.com/your-repo/php-ircd/wiki)
+
+## 🔄 Changelog
+
+### Version 2.0.0 (2025)
+
+- ✅ Vollständige IRCv3-Unterstützung
+- ✅ Web-Interface hinzugefügt
+- ✅ Umfassende Tests implementiert
+- ✅ Error-Handling verbessert
+- ✅ Sicherheitsfeatures erweitert
+- ✅ Dokumentation vervollständigt
+- ✅ Code-Qualität verbessert
+
+### Version 1.0.0 (2008-2024)
+
+- ✅ Grundlegende IRC-Funktionalität
+- ✅ Benutzer- und Kanal-Management
+- ✅ Operator-Befehle
+- ✅ Verschiedene PHP-Versionen unterstützt
+
+---
+
+**PHP-IRCd** - Ein moderner, sicherer und erweiterbarer IRC-Server in PHP! 🚀
