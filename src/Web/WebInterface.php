@@ -15,10 +15,10 @@ class WebInterface {
     private $serverSocketFile;
     private $sessionTimeout = 300; // 5 minutes timeout for sessions
     private static $activeSockets = []; // Static array to store active socket connections
-    
+
     /**
      * Constructor
-     * 
+     *
      * @param Config|array $config The configuration
      */
     public function __construct($config) {
@@ -32,17 +32,17 @@ class WebInterface {
         $this->logger = new Logger();
         $this->serverSocketFile = sys_get_temp_dir() . '/php-ircd-socket.sock';
     }
-    
+
     /**
      * Processes the web request
      */
     public function handleRequest(): void {
         // Start session
         session_start();
-        
+
         // Determine request type
         $action = $_GET['action'] ?? 'view';
-        
+
         switch ($action) {
             case 'connect':
                 $this->handleConnect();
@@ -64,14 +64,14 @@ class WebInterface {
                 break;
         }
     }
-    
+
     /**
      * Displays the web user interface
      */
     private function showInterface(): void {
         // Check if the server is running
         $serverRunning = $this->isServerRunning();
-        
+
         echo '<!DOCTYPE html>
         <html lang="en">
         <head>
@@ -94,7 +94,7 @@ class WebInterface {
                     border-radius: 5px;
                     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
                 }
-                h1, h2 {
+                h1, h2, h3 {
                     color: #2c3e50;
                 }
                 .status {
@@ -130,11 +130,64 @@ class WebInterface {
                 .btn.danger:hover {
                     background-color: #c0392b;
                 }
+                .btn.success {
+                    background-color: #27ae60;
+                }
+                .btn.success:hover {
+                    background-color: #229954;
+                }
                 .grid {
                     display: grid;
                     grid-template-columns: 1fr 300px;
                     gap: 20px;
                     margin-top: 20px;
+                }
+                .status-grid {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                    gap: 20px;
+                    margin: 20px 0;
+                }
+                .status-panel {
+                    background: white;
+                    padding: 15px;
+                    border-radius: 5px;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                }
+                .status-panel h3 {
+                    margin-top: 0;
+                    border-bottom: 2px solid #3498db;
+                    padding-bottom: 5px;
+                }
+                .status-item {
+                    display: flex;
+                    justify-content: space-between;
+                    margin: 8px 0;
+                    padding: 5px 0;
+                    border-bottom: 1px solid #eee;
+                }
+                .status-item:last-child {
+                    border-bottom: none;
+                }
+                .status-label {
+                    font-weight: bold;
+                    color: #555;
+                }
+                .status-value {
+                    color: #2c3e50;
+                }
+                .extension-status {
+                    display: inline-block;
+                    width: 10px;
+                    height: 10px;
+                    border-radius: 50%;
+                    margin-right: 5px;
+                }
+                .extension-status.loaded {
+                    background-color: #27ae60;
+                }
+                .extension-status.missing {
+                    background-color: #e74c3c;
                 }
                 #chat {
                     height: 400px;
@@ -174,6 +227,10 @@ class WebInterface {
                 .hidden {
                     display: none;
                 }
+                .refresh-btn {
+                    float: right;
+                    margin-top: -10px;
+                }
             </style>
         </head>
         <body>
@@ -181,8 +238,9 @@ class WebInterface {
                 <h1>PHP-IRCd Web Interface</h1>
                 <div class="status ' . ($serverRunning ? 'running' : 'stopped') . '">
                     Server Status: ' . ($serverRunning ? 'Running' : 'Stopped') . '
+                    <button class="btn refresh-btn" onclick="refreshStatus()">Refresh Status</button>
                 </div>';
-        
+
         if (!$serverRunning) {
             echo '<p>The IRC server is not started. Please start it via the command line with <code>php index.php</code>.</p>';
         } else {
@@ -205,7 +263,7 @@ class WebInterface {
                             <button type="submit" class="btn">Connect</button>
                         </form>
                     </div>
-                    
+
                     <div id="chatInterface" ' . (!isset($_SESSION['irc_connected']) ? 'class="hidden"' : '') . '>
                         <h2>IRC Chat</h2>
                         <div class="grid">
@@ -241,10 +299,10 @@ class WebInterface {
                     </div>
                 </div>';
         }
-        
+
         echo '</div>
             <script>
-                // JavaScript for client logic
+                // JavaScript for client logic and status updates
                 document.addEventListener("DOMContentLoaded", function() {
                     const chatInterface = document.getElementById("chatInterface");
                     const connectForm = document.getElementById("connectForm");
@@ -252,13 +310,19 @@ class WebInterface {
                     const messageForm = document.getElementById("messageForm");
                     const chatWindow = document.getElementById("chat");
                     const userList = document.getElementById("users");
-                    
+
+                    // Load initial status
+                    loadServerStatus();
+
+                    // Auto-refresh status every 30 seconds
+                    setInterval(loadServerStatus, 30000);
+
                     // Submit connection form
                     if (connectionForm) {
                         connectionForm.addEventListener("submit", function(e) {
                             e.preventDefault();
                             const formData = new FormData(connectionForm);
-                            
+
                             fetch("?action=connect", {
                                 method: "POST",
                                 body: formData
@@ -268,132 +332,208 @@ class WebInterface {
                                 if (data.success) {
                                     connectForm.classList.add("hidden");
                                     chatInterface.classList.remove("hidden");
-                                    startMessagePolling();
+                                    loadMessages();
                                 } else {
-                                    alert("Connection error: " + data.message);
+                                    alert("Connection failed: " + data.message);
                                 }
+                            })
+                            .catch(error => {
+                                console.error("Error:", error);
+                                alert("Connection failed");
                             });
                         });
                     }
-                    
+
                     // Submit message form
                     if (messageForm) {
                         messageForm.addEventListener("submit", function(e) {
                             e.preventDefault();
-                            const message = document.getElementById("messageInput").value;
-                            
+                            const formData = new FormData(messageForm);
+                            const messageInput = document.getElementById("messageInput");
+
                             fetch("?action=send", {
                                 method: "POST",
-                                headers: {
-                                    "Content-Type": "application/x-www-form-urlencoded"
-                                },
-                                body: "message=" + encodeURIComponent(message)
+                                body: formData
                             })
                             .then(response => response.json())
                             .then(data => {
                                 if (data.success) {
-                                    document.getElementById("messageInput").value = "";
+                                    messageInput.value = "";
+                                    loadMessages();
                                 } else {
-                                    alert("Error sending message: " + data.message);
+                                    alert("Failed to send message: " + data.message);
                                 }
+                            })
+                            .catch(error => {
+                                console.error("Error:", error);
+                                alert("Failed to send message");
                             });
                         });
                     }
-                    
-                    // Regularly fetch new messages
-                    function startMessagePolling() {
-                        setInterval(function() {
-                            fetch("?action=receive")
-                            .then(response => response.json())
-                            .then(data => {
-                                if (data.success) {
-                                    // Display new messages
-                                    data.messages.forEach(msg => {
-                                        addMessage(msg.text, msg.type);
+
+                    // Load messages
+                    function loadMessages() {
+                        fetch("?action=receive")
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                // Update chat window
+                                if (chatWindow) {
+                                    chatWindow.innerHTML = "";
+                                    data.messages.forEach(function(message) {
+                                        const messageDiv = document.createElement("div");
+                                        messageDiv.className = "message " + message.type;
+                                        messageDiv.innerHTML = message.content;
+                                        chatWindow.appendChild(messageDiv);
                                     });
-                                    
-                                    // Update user list
-                                    if (data.users) {
-                                        updateUserList(data.users);
-                                    }
+                                    chatWindow.scrollTop = chatWindow.scrollHeight;
                                 }
-                            });
-                        }, 1000); // Update every 1 second
-                    }
-                    
-                    // Add message to chat display
-                    function addMessage(text, type = "system") {
-                        const msgElement = document.createElement("div");
-                        msgElement.className = "message " + type;
-                        msgElement.textContent = text;
-                        chatWindow.appendChild(msgElement);
-                        chatWindow.scrollTop = chatWindow.scrollHeight;
-                    }
-                    
-                    // Update user list
-                    function updateUserList(users) {
-                        userList.innerHTML = "";
-                        users.forEach(user => {
-                            const li = document.createElement("li");
-                            li.textContent = user;
-                            userList.appendChild(li);
+
+                                // Update user list
+                                if (userList) {
+                                    userList.innerHTML = "";
+                                    data.users.forEach(function(user) {
+                                        const userLi = document.createElement("li");
+                                        userLi.textContent = user;
+                                        userList.appendChild(userLi);
+                                    });
+                                }
+                            }
+                        })
+                        .catch(error => {
+                            console.error("Error loading messages:", error);
                         });
                     }
-                    
-                    // If already connected, start message polling
+
+                    // Auto-refresh messages every 2 seconds
                     if (chatInterface && !chatInterface.classList.contains("hidden")) {
-                        startMessagePolling();
+                        setInterval(loadMessages, 2000);
                     }
                 });
-            </script>
+
+                // Function to load server status
+                function loadServerStatus() {
+                    fetch("?action=status")
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Update uptime
+                            const uptimeElement = document.getElementById("serverUptime");
+                            if (uptimeElement && data.uptime > 0) {
+                                uptimeElement.textContent = formatUptime(data.uptime);
+                            }
+
+                            // Update memory usage
+                            const memoryElement = document.getElementById("memoryUsage");
+                            if (memoryElement && data.system_info && data.system_info.memory_usage) {
+                                const current = formatBytes(data.system_info.memory_usage.current);
+                                const peak = formatBytes(data.system_info.memory_usage.peak);
+                                memoryElement.textContent = current + " (Peak: " + peak + ")";
+                            }
+
+                            // Update connection statistics
+                            if (data.detailed_stats && !data.detailed_stats.error) {
+                                const connectedUsers = document.getElementById("connectedUsers");
+                                const activeChannels = document.getElementById("activeChannels");
+                                const serverLinks = document.getElementById("serverLinks");
+                                const availableSlots = document.getElementById("availableSlots");
+
+                                if (connectedUsers) connectedUsers.textContent = data.detailed_stats.connected_users;
+                                if (activeChannels) activeChannels.textContent = data.detailed_stats.active_channels;
+                                if (serverLinks) serverLinks.textContent = data.detailed_stats.server_links;
+                                if (availableSlots) availableSlots.textContent = data.detailed_stats.available_slots;
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        console.error("Error loading server status:", error);
+                    });
+                }
+
+                // Function to refresh status manually
+                function refreshStatus() {
+                    loadServerStatus();
+                }
+
+                // Helper function to format uptime
+                function formatUptime(seconds) {
+                    const days = Math.floor(seconds / 86400);
+                    const hours = Math.floor((seconds % 86400) / 3600);
+                    const minutes = Math.floor((seconds % 3600) / 60);
+                    const secs = seconds % 60;
+
+                    const parts = [];
+                    if (days > 0) parts.push(days + "d");
+                    if (hours > 0) parts.push(hours + "h");
+                    if (minutes > 0) parts.push(minutes + "m");
+                    parts.push(secs + "s");
+
+                    return parts.join(" ");
+                }
+
+                // Helper function to format bytes
+                function formatBytes(bytes) {
+                    const units = ["B", "KB", "MB", "GB", "TB"];
+                    bytes = Math.max(bytes, 0);
+                    const pow = Math.floor((bytes ? Math.log(bytes) : 0) / Math.log(1024));
+                    const pow2 = Math.min(pow, units.length - 1);
+
+                    bytes /= Math.pow(1024, pow2);
+
+                    return Math.round(bytes * 100) / 100 + " " + units[pow2];
+                }
+            </script>';
+        }
+
+        echo '</div>
         </body>
         </html>';
     }
-    
+
     /**
      * Processes a connection request
      */
     private function handleConnect(): void {
         header('Content-Type: application/json');
-        
+
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             echo json_encode(['success' => false, 'message' => 'Only POST requests are allowed']);
             return;
         }
-        
+
         $nickname = $_POST['nickname'] ?? '';
         $username = $_POST['username'] ?? '';
         $realname = $_POST['realname'] ?? '';
-        
+
         if (empty($nickname) || empty($username) || empty($realname)) {
             echo json_encode(['success' => false, 'message' => 'All fields must be filled']);
             return;
         }
-        
+
         try {
             // Connect to the IRC server
             $socket = $this->connectToServer();
-            
+
             if (!$socket) {
                 echo json_encode(['success' => false, 'message' => 'Failed to connect to IRC server']);
                 return;
             }
-            
+
             // Send user data
             fwrite($socket, "NICK {$nickname}\r\n");
             fwrite($socket, "USER {$username} 0 * :{$realname}\r\n");
-            
+
             // Generate unique socket ID and store in static array
             $socketId = uniqid('sock_', true);
             self::$activeSockets[$socketId] = $socket;
-            
+
             // Store socket ID in session
             $_SESSION['irc_socket_id'] = $socketId;
             $_SESSION['irc_connected'] = true;
             $_SESSION['irc_nickname'] = $nickname;
             $_SESSION['irc_last_activity'] = time();
             $_SESSION['irc_buffer'] = [];
-            
+
             $this->logger->info("Web client connected: {$nickname}");
             echo json_encode(['success' => true]);
         } catch (Exception $e) {
@@ -401,43 +541,43 @@ class WebInterface {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
     }
-    
+
     /**
      * Processes a message request
      */
     private function handleSend(): void {
         header('Content-Type: application/json');
-        
+
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             echo json_encode(['success' => false, 'message' => 'Only POST requests are allowed']);
             return;
         }
-        
+
         if (!isset($_SESSION['irc_connected']) || !$_SESSION['irc_connected']) {
             echo json_encode(['success' => false, 'message' => 'Not connected to IRC server']);
             return;
         }
-        
+
         $message = $_POST['message'] ?? '';
-        
+
         if (empty($message)) {
             echo json_encode(['success' => false, 'message' => 'Empty message']);
             return;
         }
-        
+
         try {
             $socket = $this->getSocketFromSession();
-            
+
             if (!$socket) {
                 echo json_encode(['success' => false, 'message' => 'Socket connection lost']);
                 return;
             }
-            
+
             // Process commands
             if ($message[0] === '/') {
                 $parts = explode(' ', substr($message, 1));
                 $command = strtoupper($parts[0]);
-                
+
                 switch ($command) {
                     case 'JOIN':
                         if (isset($parts[1])) {
@@ -461,7 +601,7 @@ class WebInterface {
                             $target = $parts[1];
                             $msgText = implode(' ', array_slice($parts, 2));
                             fwrite($socket, "PRIVMSG {$target} :{$msgText}\r\n");
-                            
+
                             // Display own message in chat
                             $_SESSION['irc_buffer'][] = [
                                 'text' => "-> {$target}: {$msgText}",
@@ -495,7 +635,7 @@ class WebInterface {
                 // Send as message to current channel, if not in channel then error
                 if (isset($_SESSION['irc_current_channel'])) {
                     fwrite($socket, "PRIVMSG {$_SESSION['irc_current_channel']} :{$message}\r\n");
-                    
+
                     // Display own message in chat
                     $_SESSION['irc_buffer'][] = [
                         'text' => "{$_SESSION['irc_nickname']}: {$message}",
@@ -506,63 +646,63 @@ class WebInterface {
                     return;
                 }
             }
-            
+
             $_SESSION['irc_last_activity'] = time();
-            
+
             echo json_encode(['success' => true]);
         } catch (Exception $e) {
             $this->logger->error("Send error: " . $e->getMessage());
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
     }
-    
+
     /**
      * Processes a request for new messages
      */
     private function handleReceive(): void {
         header('Content-Type: application/json');
-        
+
         if (!isset($_SESSION['irc_connected']) || !$_SESSION['irc_connected']) {
             echo json_encode(['success' => false, 'message' => 'Not connected to IRC server']);
             return;
         }
-        
+
         try {
             $socket = $this->getSocketFromSession();
-            
+
             if (!$socket) {
                 echo json_encode(['success' => false, 'message' => 'Socket connection lost']);
                 return;
             }
-            
+
             // Check for new data
             $read = [$socket];
             $write = null;
             $except = null;
             $messages = [];
             $users = [];
-            
+
             // Retrieve buffered messages
             if (isset($_SESSION['irc_buffer']) && !empty($_SESSION['irc_buffer'])) {
                 $messages = $_SESSION['irc_buffer'];
                 $_SESSION['irc_buffer'] = [];
             }
-            
+
             // Check for new data (non-blocking)
             if (stream_select($read, $write, $except, 0, 200000)) { // 0.2 seconds timeout
                 foreach ($read as $socket) {
                     $data = fgets($socket, 4096);
-                    
+
                     if ($data === false || feof($socket)) {
                         // Connection lost
                         $this->closeConnection();
                         echo json_encode([
-                            'success' => false, 
+                            'success' => false,
                             'message' => 'Connection to IRC server lost'
                         ]);
                         return;
                     }
-                    
+
                     // Parse and process message
                     $message = trim($data);
                     if (!empty($message)) {
@@ -570,9 +710,9 @@ class WebInterface {
                     }
                 }
             }
-            
+
             $_SESSION['irc_last_activity'] = time();
-            
+
             echo json_encode([
                 'success' => true,
                 'messages' => $messages,
@@ -583,10 +723,10 @@ class WebInterface {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
     }
-    
+
     /**
      * Processes an IRC message
-     * 
+     *
      * @param string $message The IRC message
      * @param array &$messages Array for outgoing messages
      * @param array &$users Array for the user list
@@ -599,22 +739,22 @@ class WebInterface {
             $prefix = substr($message, 1, $prefixEnd - 1);
             $message = substr($message, $prefixEnd + 1);
         }
-        
+
         $trailingStart = strpos($message, ' :');
         $trailing = '';
         if ($trailingStart !== false) {
             $trailing = substr($message, $trailingStart + 2);
             $message = substr($message, 0, $trailingStart);
         }
-        
+
         $parts = explode(' ', $message);
         $command = $parts[0];
         $params = array_slice($parts, 1);
-        
+
         if (!empty($trailing)) {
             $params[] = $trailing;
         }
-        
+
         // Process various IRC commands
         switch ($command) {
             case 'PING':
@@ -622,15 +762,15 @@ class WebInterface {
                 $socket = $this->getSocketFromSession();
                 fwrite($socket, "PONG :{$params[0]}\r\n");
                 break;
-                
+
             case 'PRIVMSG':
                 // Chat message
                 $sender = explode('!', $prefix)[0];
                 $target = $params[0];
                 $text = $params[1];
-                
+
                 // Only display if directed to the current channel or directly to us
-                if ($target === $_SESSION['irc_nickname'] || 
+                if ($target === $_SESSION['irc_nickname'] ||
                     (isset($_SESSION['irc_current_channel']) && $target === $_SESSION['irc_current_channel'])) {
                     $messages[] = [
                         'text' => $this->detectUrls("{$sender}: {$text}"),
@@ -638,66 +778,66 @@ class WebInterface {
                     ];
                 }
                 break;
-                
+
             case 'JOIN':
                 // Someone joins a channel
                 $sender = explode('!', $prefix)[0];
                 $channel = $params[0];
-                
+
                 if ($sender === $_SESSION['irc_nickname']) {
                     // We joined the channel
                     $_SESSION['irc_current_channel'] = $channel;
                 }
-                
+
                 $messages[] = [
                     'text' => "{$sender} joined {$channel}",
                     'type' => 'system'
                 ];
                 break;
-                
+
             case 'PART':
             case 'QUIT':
                 // Someone leaves a channel or the server
                 $sender = explode('!', $prefix)[0];
                 $reason = isset($params[1]) ? $params[1] : "No reason";
-                
+
                 $messages[] = [
                     'text' => "{$sender} left the chat: {$reason}",
                     'type' => 'system'
                 ];
                 break;
-                
+
             case 'NICK':
                 // Someone changes their nickname
                 $oldNick = explode('!', $prefix)[0];
                 $newNick = $params[0];
-                
+
                 $messages[] = [
                     'text' => "{$oldNick} is now known as {$newNick}",
                     'type' => 'system'
                 ];
-                
+
                 if ($oldNick === $_SESSION['irc_nickname']) {
                     $_SESSION['irc_nickname'] = $newNick;
                 }
                 break;
-                
+
             case '353': // RPL_NAMREPLY
                 // User list for a channel
                 $channel = $params[2];
                 $userList = explode(' ', $params[3]);
-                
+
                 // If it's about the current channel, update user list
                 if (isset($_SESSION['irc_current_channel']) && $channel === $_SESSION['irc_current_channel']) {
                     $users = array_merge($users, $userList);
                 }
                 break;
-                
+
             case '332': // RPL_TOPIC
                 // Channel topic
                 $channel = $params[1];
                 $topic = $params[2];
-                
+
                 if (isset($_SESSION['irc_current_channel']) && $channel === $_SESSION['irc_current_channel']) {
                     $messages[] = [
                         'text' => "Topic for {$channel}: {$topic}",
@@ -705,7 +845,7 @@ class WebInterface {
                     ];
                 }
                 break;
-                
+
             case '001': // RPL_WELCOME
             case '002': // RPL_YOURHOST
             case '003': // RPL_CREATED
@@ -727,7 +867,7 @@ class WebInterface {
                     'type' => 'system'
                 ];
                 break;
-                
+
             default:
                 // Display all other messages as system messages
                 if (!empty($prefix)) {
@@ -744,22 +884,22 @@ class WebInterface {
                 break;
         }
     }
-    
+
     /**
      * Processes a request to disconnect
      */
     private function handleDisconnect(): void {
         header('Content-Type: application/json');
-        
+
         try {
             $socket = $this->getSocketFromSession();
-            
+
             if ($socket) {
                 // Send QUIT command
                 fwrite($socket, "QUIT :Web client disconnected\r\n");
                 fclose($socket);
             }
-            
+
             $this->closeConnection();
             echo json_encode(['success' => true]);
         } catch (Exception $e) {
@@ -767,36 +907,146 @@ class WebInterface {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
     }
-    
+
     /**
      * Processes a request to retrieve server status
      */
     private function handleStatus(): void {
         header('Content-Type: application/json');
-        
+
         try {
             $running = $this->isServerRunning();
-            echo json_encode([
+            $status = [
                 'success' => true,
                 'running' => $running,
-                'uptime' => $running ? $this->getServerUptime() : 0
-            ]);
+                'uptime' => $running ? $this->getServerUptime() : 0,
+                'server_info' => $this->getServerInfo(),
+                'system_info' => $this->getSystemInfo()
+            ];
+
+            if ($running) {
+                $status['detailed_stats'] = $this->getDetailedServerStats();
+            }
+
+            echo json_encode($status);
         } catch (Exception $e) {
             $this->logger->error("Status error: " . $e->getMessage());
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
     }
-    
+
+    /**
+     * Get basic server information
+     */
+    private function getServerInfo(): array {
+        return [
+            'name' => $this->config->get('name', 'Unknown'),
+            'network' => $this->config->get('net', 'Unknown'),
+            'version' => $this->config->get('version', 'Unknown'),
+            'description' => $this->config->get('description', 'No description'),
+            'port' => $this->config->get('port', 6667),
+            'ssl_enabled' => $this->config->get('ssl_enabled', false),
+            'max_users' => $this->config->get('max_users', 50),
+            'admin_name' => $this->config->get('admin_name', 'Not specified'),
+            'admin_email' => $this->config->get('admin_email', 'Not specified'),
+            'admin_location' => $this->config->get('admin_location', 'Not specified')
+        ];
+    }
+
+    /**
+     * Get system information
+     */
+    private function getSystemInfo(): array {
+        return [
+            'php_version' => PHP_VERSION,
+            'memory_limit' => ini_get('memory_limit'),
+            'max_execution_time' => ini_get('max_execution_time'),
+            'extensions' => [
+                'sockets' => extension_loaded('sockets'),
+                'json' => extension_loaded('json'),
+                'openssl' => extension_loaded('openssl'),
+                'pcntl' => extension_loaded('pcntl'),
+                'posix' => extension_loaded('posix'),
+                'mbstring' => extension_loaded('mbstring')
+            ],
+            'memory_usage' => [
+                'current' => memory_get_usage(true),
+                'peak' => memory_get_peak_usage(true)
+            ]
+        ];
+    }
+
+    /**
+     * Get detailed server statistics by connecting to the server
+     */
+    private function getDetailedServerStats(): array {
+        try {
+            $socket = $this->connectToServer();
+
+            if (!$socket) {
+                return ['error' => 'Could not connect to server'];
+            }
+
+            $stats = [
+                'connected_users' => 0,
+                'active_channels' => 0,
+                'server_links' => 0,
+                'available_slots' => $this->config->get('max_users', 50)
+            ];
+
+            // Send LUSERS command to get user statistics
+            fwrite($socket, "LUSERS\r\n");
+
+            // Wait for response with timeout
+            $read = [$socket];
+            $write = null;
+            $except = null;
+
+            if (stream_select($read, $write, $except, 2, 0)) { // 2-second timeout
+                while (($line = fgets($socket)) !== false) {
+                    $line = trim($line);
+
+                    // Parse LUSERS response
+                    if (preg_match('/^:[^ ]+ 251 [^ ]+ :There are (\d+) users and (\d+) invisible on (\d+) servers/', $line, $matches)) {
+                        $stats['connected_users'] = (int)$matches[1] + (int)$matches[2];
+                        $stats['server_links'] = (int)$matches[3];
+                    }
+
+                    // Parse channel count
+                    if (preg_match('/^:[^ ]+ 254 [^ ]+ (\d+) :channels formed/', $line, $matches)) {
+                        $stats['active_channels'] = (int)$matches[1];
+                    }
+
+                    // Break if end of response
+                    if (strpos($line, '366') !== false || empty($line)) {
+                        break;
+                    }
+                }
+            }
+
+            // Calculate available slots
+            $stats['available_slots'] = max(0, $stats['available_slots'] - $stats['connected_users']);
+
+            // Close the socket
+            fclose($socket);
+
+            return $stats;
+        } catch (Exception $e) {
+            $this->logger->error("Error getting detailed server stats: " . $e->getMessage());
+            return ['error' => $e->getMessage()];
+        }
+    }
+
     /**
      * Establishes a connection to the IRC server
-     * 
+     *
      * @return resource|false The socket connection or false on error
      */
     private function connectToServer() {
         // Überprüfen, ob SSL aktiviert ist
         $useSSL = $this->config->get('ssl_enabled', false);
         $port = $this->config->get('port', 6667);
-        
+
         if ($useSSL) {
             // SSL-Kontext erstellen
             $context = stream_context_create([
@@ -806,13 +1056,13 @@ class WebInterface {
                     'allow_self_signed' => true
                 ]
             ]);
-            
+
             // Sichere Verbindung herstellen
             $socket = @stream_socket_client(
-                "ssl://127.0.0.1:{$port}", 
-                $errno, 
-                $errstr, 
-                5, 
+                "ssl://127.0.0.1:{$port}",
+                $errno,
+                $errstr,
+                5,
                 STREAM_CLIENT_CONNECT,
                 $context
             );
@@ -820,55 +1070,55 @@ class WebInterface {
             // Normale Verbindung herstellen
             $socket = @fsockopen('127.0.0.1', $port, $errno, $errstr, 5);
         }
-        
+
         if (!$socket) {
             $this->logger->error("Failed to connect to IRC server: {$errstr} ({$errno})");
             return false;
         }
-        
+
         // Set non-blocking
         stream_set_blocking($socket, false);
-        
+
         return $socket;
     }
-    
+
     /**
      * Retrieves the socket object from the session
-     * 
+     *
      * @return resource|false The socket resource or false on error
      */
     private function getSocketFromSession() {
         if (!isset($_SESSION['irc_socket_id'])) {
             return false;
         }
-        
+
         // Check inactivity
         if (time() - $_SESSION['irc_last_activity'] > $this->sessionTimeout) {
             $this->closeConnection();
             return false;
         }
-        
+
         $socketId = $_SESSION['irc_socket_id'];
-        
+
         // Check if socket exists in the static array
         if (!isset(self::$activeSockets[$socketId])) {
             $this->logger->error("Socket not found in active connections");
             $this->closeConnection();
             return false;
         }
-        
+
         $socket = self::$activeSockets[$socketId];
-        
+
         // Check if socket is still valid
         if (!is_resource($socket)) {
             $this->logger->error("Invalid socket resource");
             $this->closeConnection();
             return false;
         }
-        
+
         return $socket;
     }
-    
+
     /**
      * Closes the IRC connection and cleans up the session
      */
@@ -885,7 +1135,7 @@ class WebInterface {
                     unset(self::$activeSockets[$socketId]);
                 }
             }
-            
+
             // Reset session variables
             unset($_SESSION['irc_socket_id']);
             unset($_SESSION['irc_connected']);
@@ -897,10 +1147,10 @@ class WebInterface {
             $this->logger->error("Error closing connection: " . $e->getMessage());
         }
     }
-    
+
     /**
      * Checks if the IRC server is running
-     * 
+     *
      * @return bool Whether the server is running
      */
     private function isServerRunning(): bool {
@@ -911,34 +1161,34 @@ class WebInterface {
         }
         return false;
     }
-    
+
     /**
      * Returns the uptime of the IRC server
-     * 
+     *
      * @return int The uptime in seconds or 0 on error
      */
     private function getServerUptime(): int {
         try {
             $socket = $this->connectToServer();
-            
+
             if (!$socket) {
                 return 0;
             }
-            
+
             // Send a VERSION request to get server information
             fwrite($socket, "VERSION\r\n");
-            
+
             // Wait for response with timeout
             $read = [$socket];
             $write = null;
             $except = null;
             $startTime = 0;
-            
+
             // Attempt to read server startup time from response
             if (stream_select($read, $write, $except, 2, 0)) { // 2-second timeout
                 while (($line = fgets($socket)) !== false) {
                     $line = trim($line);
-                    
+
                     // Look for 003 message which contains server creation time
                     if (preg_match('/^:[^ ]+ 003 [^ ]+ :This server was created ([^)]+)/', $line, $matches)) {
                         $serverStartTime = strtotime($matches[1]);
@@ -947,22 +1197,22 @@ class WebInterface {
                             break;
                         }
                     }
-                    
+
                     // Break if end of response
                     if (strpos($line, '366') !== false || empty($line)) {
                         break;
                     }
                 }
             }
-            
+
             // Close the socket
             fclose($socket);
-            
+
             // Calculate uptime
             if ($startTime > 0) {
                 return time() - $startTime;
             }
-            
+
             // Fallback: return an indication that server is running but uptime is unknown
             return 1;
         } catch (Exception $e) {
@@ -970,10 +1220,10 @@ class WebInterface {
             return 0;
         }
     }
-    
+
     /**
      * Erkennt URLs in einer Nachricht und wandelt sie in HTML-Links um
-     * 
+     *
      * @param string $message Die zu verarbeitende Nachricht
      * @return string Die Nachricht mit HTML-Links
      */
@@ -981,23 +1231,23 @@ class WebInterface {
         // Verbesserte URL-Erkennung mit robuster Fehlerbehandlung
         try {
             $pattern = '/(https?:\/\/[^\s<>"\']+|www\.[^\s<>"\']+)/';
-            
+
             return preg_replace_callback($pattern, function($matches) {
                 $url = $matches[0];
                 $displayUrl = htmlspecialchars($url);
-                
+
                 // Stelle sicher, dass die URL mit http:// oder https:// beginnt
                 $href = $url;
                 if (strpos($url, 'http') !== 0) {
                     $href = 'http://' . $url;
                 }
-                
+
                 // Begrenzen der Anzeige-URL-Länge für bessere Darstellung
                 if (strlen($displayUrl) > 50) {
                     $displayUrl = substr($displayUrl, 0, 47) . '...';
                 }
-                
-                return '<a href="' . htmlspecialchars($href) . '" target="_blank" rel="noopener">' . 
+
+                return '<a href="' . htmlspecialchars($href) . '" target="_blank" rel="noopener">' .
                        $displayUrl . '</a>';
             }, $message);
         } catch (\Exception $e) {

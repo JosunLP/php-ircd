@@ -2,7 +2,7 @@
 
 /**
  * PHP-IRCd - An IRC server in PHP
- * 
+ *
  * Originally written by Daniel Danopia (2008)
  * Modernized 2025
  */
@@ -18,50 +18,26 @@ use PhpIrcd\Core\Server;
 use PhpIrcd\Utils\Logger;
 use PhpIrcd\Web\WebInterface;
 
-// Error handling
+// Set error reporting
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
-set_error_handler(function($errno, $errstr, $errfile, $errline) {
-    $logger = new Logger('error.log', 0, true);
-    $logger->error("PHP error ($errno): $errstr in $errfile on line $errline");
-    
-    if (in_array($errno, [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
-        die("A critical error has occurred. See error.log for details.");
-    }
-    
-    return false; // Continue with default error handling
-});
+
+// Set timezone
+date_default_timezone_set('UTC');
 
 // Load configuration
 $configPath = __DIR__ . '/config.php';
-$config = new Config($configPath);
+
+if (!file_exists($configPath)) {
+    die("Configuration file not found: {$configPath}\n");
+}
+
+$config = require $configPath;
 
 // Initialize logger
-$logger = new Logger(
-    $config->get('log_file', 'ircd.log'),
-    $config->get('log_level', 1),
-    true
-);
+$logger = new Logger($config['log_level'] ?? 'info');
 
-if ($isCliMode) {
-    // If started as CLI, run the server daemon
-    $logger->info("PHP-IRCd starting in CLI mode...");
-    $logger->info("Configuration loaded from: " . $configPath);
+// Create and start server
+$server = new Server($config, false);
 
-    // Create and start server instance
-    try {
-        $server = new Server($config->getAll());
-        $server->start();
-    } catch (Exception $e) {
-        $logger->error("Server error: " . $e->getMessage());
-        $logger->error("Stacktrace: " . $e->getTraceAsString());
-        die("Server error: " . $e->getMessage());
-    }
-} else {
-    // If started via web server, display the web interface
-    $logger->info("PHP-IRCd called via web server...");
-    
-    // Initialize web interface
-    $webInterface = new WebInterface($config);
-    $webInterface->handleRequest();
-}
+$server->start();

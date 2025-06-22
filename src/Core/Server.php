@@ -241,6 +241,10 @@ class Server {
         // Running flag
         $this->running = true;
 
+        // Status display timing
+        $lastStatusTime = 0;
+        $statusInterval = 300; // Show status every 5 minutes
+
         while ($this->running) {
             // Handle incoming signals if pcntl is available
             if (function_exists('pcntl_signal_dispatch')) {
@@ -265,6 +269,12 @@ class Server {
                 if (time() - $lastSaveTime > 60) { // Save every 60 seconds
                     $this->saveState();
                     $lastSaveTime = time();
+                }
+
+                // Display status periodically
+                if (time() - $lastStatusTime > $statusInterval) {
+                    $this->displayStatus();
+                    $lastStatusTime = time();
                 }
             } catch (\Exception $e) {
                 $this->logger->error("Error in main loop: " . $e->getMessage());
@@ -307,6 +317,9 @@ class Server {
     public function shutdown(): void {
         $this->logger->info("Server shutting down...");
 
+        // Display final statistics
+        $this->displayFinalStats();
+
         // Notify all users about server shutdown
         $message = "Server is shutting down. Please reconnect later.";
         foreach ($this->users as $user) {
@@ -345,31 +358,184 @@ class Server {
     }
 
     /**
+     * Display final server statistics before shutdown
+     */
+    private function displayFinalStats(): void {
+        $uptime = time() - $this->startTime;
+        $uptimeFormatted = $this->formatUptime($uptime);
+
+        $this->logger->info("=" . str_repeat("=", 60));
+        $this->logger->info("PHP-IRCd Server Shutdown Statistics");
+        $this->logger->info("=" . str_repeat("=", 60));
+
+        $this->logger->info("Total Uptime: " . $uptimeFormatted);
+        $this->logger->info("Server Start: " . date('Y-m-d H:i:s', $this->startTime));
+        $this->logger->info("Server End: " . date('Y-m-d H:i:s'));
+
+        // Final connection statistics
+        $this->logger->info("");
+        $this->logger->info("Final Statistics:");
+        $this->logger->info("  Total Users Connected: " . count($this->users));
+        $this->logger->info("  Total Channels Created: " . count($this->channels));
+        $this->logger->info("  Total Server Links: " . count($this->serverLinks));
+
+        // Memory usage at shutdown
+        $memoryUsage = memory_get_usage(true);
+        $memoryPeak = memory_get_peak_usage(true);
+        $this->logger->info("");
+        $this->logger->info("Final Memory Usage:");
+        $this->logger->info("  Current: " . $this->formatBytes($memoryUsage));
+        $this->logger->info("  Peak: " . $this->formatBytes($memoryPeak));
+
+        $this->logger->info("");
+        $this->logger->info("Server shutdown initiated successfully.");
+        $this->logger->info("=" . str_repeat("=", 60));
+    }
+
+    /**
      * Start the server
      *
      * @throws \RuntimeException If the server fails to start
      */
     public function start(): void {
         if ($this->isWebMode) {
-            // No socket loop in web mode
             $this->logger->info("Server running in web mode");
             return;
         }
-
         try {
+            $this->displayStartupInfo();
             $this->createSocket();
-
-            // Setup shutdown function
             register_shutdown_function([$this, 'shutdown']);
-
-            // Automatische Server-Verbindungen herstellen
             $this->establishAutoConnections();
-
             $this->mainLoop();
         } catch (\Exception $e) {
             $this->logger->error("Failed to start server: " . $e->getMessage());
             throw new \RuntimeException("Failed to start server: " . $e->getMessage(), 0, $e);
         }
+    }
+
+    /**
+     * Display comprehensive server startup information
+     */
+    private function displayStartupInfo(): void {
+        $this->logger->info("=" . str_repeat("=", 60));
+        $this->logger->info("PHP-IRCd Server Starting Up");
+        $this->logger->info("=" . str_repeat("=", 60));
+
+        // Basic server information
+        $this->logger->info("Server Name: " . ($this->config['name'] ?? 'Unknown'));
+        $this->logger->info("Network: " . ($this->config['net'] ?? 'Unknown'));
+        $this->logger->info("Version: " . ($this->config['version'] ?? 'Unknown'));
+        $this->logger->info("Description: " . ($this->config['description'] ?? 'No description'));
+
+        // Connection information
+        $this->logger->info("");
+        $this->logger->info("Connection Settings:");
+        $this->logger->info("  Bind IP: " . ($this->config['bind_ip'] ?? '0.0.0.0'));
+        $this->logger->info("  Port: " . ($this->config['port'] ?? '6667'));
+        $this->logger->info("  SSL: " . (!empty($this->config['ssl_enabled']) ? 'Enabled' : 'Disabled'));
+        if (!empty($this->config['ssl_enabled'])) {
+            $this->logger->info("  SSL Certificate: " . ($this->config['ssl_cert'] ?? 'Not specified'));
+            $this->logger->info("  SSL Key: " . ($this->config['ssl_key'] ?? 'Not specified'));
+        }
+
+        // Limits and settings
+        $this->logger->info("");
+        $this->logger->info("Server Limits:");
+        $this->logger->info("  Max Users: " . ($this->config['max_users'] ?? '50'));
+        $this->logger->info("  Max Packet Length: " . ($this->config['max_len'] ?? '512'));
+        $this->logger->info("  Ping Interval: " . ($this->config['ping_interval'] ?? '90') . "s");
+        $this->logger->info("  Ping Timeout: " . ($this->config['ping_timeout'] ?? '240') . "s");
+        $this->logger->info("  Max Channels per User: " . ($this->config['max_channels_per_user'] ?? '10'));
+        $this->logger->info("  Max Watch Entries: " . ($this->config['max_watch_entries'] ?? '128'));
+        $this->logger->info("  Max Silence Entries: " . ($this->config['max_silence_entries'] ?? '15'));
+
+        // IRCv3 Features
+        $this->logger->info("");
+        $this->logger->info("IRCv3 Features:");
+        $this->logger->info("  Capability Negotiation: " . (!empty($this->config['cap_enabled']) ? 'Enabled' : 'Disabled'));
+        $this->logger->info("  SASL Authentication: " . (!empty($this->config['sasl_enabled']) ? 'Enabled' : 'Disabled'));
+
+        if (!empty($this->config['cap_enabled']) && isset($this->config['ircv3_features'])) {
+            $enabledFeatures = [];
+            foreach ($this->config['ircv3_features'] as $feature => $enabled) {
+                if ($enabled) {
+                    $enabledFeatures[] = $feature;
+                }
+            }
+            if (!empty($enabledFeatures)) {
+                $this->logger->info("  Enabled Features: " . implode(', ', $enabledFeatures));
+            }
+        }
+
+        // Server links
+        $this->logger->info("");
+        $this->logger->info("Server Links:");
+        $this->logger->info("  Server Links: " . (!empty($this->config['enable_server_links']) ? 'Enabled' : 'Disabled'));
+        if (!empty($this->config['enable_server_links'])) {
+            $autoConnectCount = isset($this->config['auto_connect_servers']) ? count($this->config['auto_connect_servers']) : 0;
+            $this->logger->info("  Auto-Connect Servers: " . $autoConnectCount);
+            $this->logger->info("  Hub Mode: " . (!empty($this->config['hub_mode']) ? 'Enabled' : 'Disabled'));
+        }
+
+        // Security settings
+        $this->logger->info("");
+        $this->logger->info("Security Settings:");
+        $this->logger->info("  IP Filtering: " . (!empty($this->config['ip_filtering_enabled']) ? 'Enabled' : 'Disabled'));
+        if (!empty($this->config['ip_filtering_enabled'])) {
+            $this->logger->info("  Filter Mode: " . ($this->config['ip_filter_mode'] ?? 'blacklist'));
+            $whitelistCount = isset($this->config['ip_whitelist']) ? count($this->config['ip_whitelist']) : 0;
+            $blacklistCount = isset($this->config['ip_blacklist']) ? count($this->config['ip_blacklist']) : 0;
+            $this->logger->info("  IP Whitelist Entries: " . $whitelistCount);
+            $this->logger->info("  IP Blacklist Entries: " . $blacklistCount);
+        }
+        $this->logger->info("  Hostname Cloaking: " . (!empty($this->config['cloak_hostnames']) ? 'Enabled' : 'Disabled'));
+
+        // Storage and logging
+        $this->logger->info("");
+        $this->logger->info("Storage & Logging:");
+        $this->logger->info("  Storage Directory: " . ($this->config['storage_dir'] ?? 'Not specified'));
+        $this->logger->info("  Log File: " . ($this->config['log_file'] ?? 'ircd.log'));
+        $this->logger->info("  Log Level: " . ($this->config['log_level'] ?? '0'));
+        $this->logger->info("  Console Logging: " . (!empty($this->config['log_to_console']) ? 'Enabled' : 'Disabled'));
+        $this->logger->info("  Debug Mode: " . (!empty($this->config['debug_mode']) ? 'Enabled' : 'Disabled'));
+
+        // Admin information
+        $this->logger->info("");
+        $this->logger->info("Administration:");
+        $this->logger->info("  Admin Name: " . ($this->config['admin_name'] ?? 'Not specified'));
+        $this->logger->info("  Admin Email: " . ($this->config['admin_email'] ?? 'Not specified'));
+        $this->logger->info("  Admin Location: " . ($this->config['admin_location'] ?? 'Not specified'));
+
+        // System information
+        $this->logger->info("");
+        $this->logger->info("System Information:");
+        $this->logger->info("  PHP Version: " . PHP_VERSION);
+        $this->logger->info("  Server Start Time: " . date('Y-m-d H:i:s', $this->startTime));
+        $this->logger->info("  Memory Limit: " . ini_get('memory_limit'));
+        $this->logger->info("  Max Execution Time: " . ini_get('max_execution_time') . "s");
+
+        // Check for required extensions
+        $this->logger->info("");
+        $this->logger->info("Required Extensions:");
+        $requiredExtensions = ['sockets', 'json', 'openssl'];
+        foreach ($requiredExtensions as $ext) {
+            $status = extension_loaded($ext) ? 'Loaded' : 'Missing';
+            $this->logger->info("  " . strtoupper($ext) . ": " . $status);
+        }
+
+        // Check for optional extensions
+        $this->logger->info("");
+        $this->logger->info("Optional Extensions:");
+        $optionalExtensions = ['pcntl', 'posix', 'mbstring'];
+        foreach ($optionalExtensions as $ext) {
+            $status = extension_loaded($ext) ? 'Available' : 'Not Available';
+            $this->logger->info("  " . strtoupper($ext) . ": " . $status);
+        }
+
+        $this->logger->info("");
+        $this->logger->info("Server is ready to accept connections!");
+        $this->logger->info("=" . str_repeat("=", 60));
     }
 
     /**
@@ -1166,5 +1332,151 @@ class Server {
     public function isCapabilitySupported(string $capability): bool {
         return isset($this->supportedCapabilities[$capability]) &&
                $this->supportedCapabilities[$capability] === true;
+    }
+
+    /**
+     * Display real-time server status information
+     */
+    public function displayStatus(): void {
+        $uptime = time() - $this->startTime;
+        $uptimeFormatted = $this->formatUptime($uptime);
+
+        $this->logger->info("=" . str_repeat("=", 60));
+        $this->logger->info("PHP-IRCd Server Status");
+        $this->logger->info("=" . str_repeat("=", 60));
+
+        // Server status
+        $this->logger->info("Server Status: " . ($this->running ? 'Running' : 'Stopped'));
+        $this->logger->info("Uptime: " . $uptimeFormatted);
+        $this->logger->info("Current Time: " . date('Y-m-d H:i:s'));
+
+        // Connection statistics
+        $this->logger->info("");
+        $this->logger->info("Connection Statistics:");
+        $this->logger->info("  Connected Users: " . count($this->users));
+        $this->logger->info("  Active Channels: " . count($this->channels));
+        $this->logger->info("  Server Links: " . count($this->serverLinks));
+        $this->logger->info("  Max Users: " . ($this->config['max_users'] ?? '50'));
+        $this->logger->info("  Available Slots: " . (($this->config['max_users'] ?? 50) - count($this->users)));
+
+        // Memory usage
+        $memoryUsage = memory_get_usage(true);
+        $memoryPeak = memory_get_peak_usage(true);
+        $this->logger->info("");
+        $this->logger->info("Memory Usage:");
+        $this->logger->info("  Current: " . $this->formatBytes($memoryUsage));
+        $this->logger->info("  Peak: " . $this->formatBytes($memoryPeak));
+        $this->logger->info("  Limit: " . ini_get('memory_limit'));
+
+        // Recent activity
+        $this->logger->info("");
+        $this->logger->info("Recent Activity:");
+        $recentUsers = array_slice($this->users, -5); // Last 5 users
+        if (!empty($recentUsers)) {
+            foreach ($recentUsers as $user) {
+                $this->logger->info("  User: " . $user->getNick() . " (" . $user->getIp() . ")");
+            }
+        } else {
+            $this->logger->info("  No users currently connected");
+        }
+
+        // Channel information
+        $this->logger->info("");
+        $this->logger->info("Channel Information:");
+        if (!empty($this->channels)) {
+            foreach ($this->channels as $channel) {
+                $userCount = count($channel->getUsers());
+                $this->logger->info("  " . $channel->getName() . ": " . $userCount . " users");
+            }
+        } else {
+            $this->logger->info("  No active channels");
+        }
+
+        $this->logger->info("=" . str_repeat("=", 60));
+    }
+
+    /**
+     * Format uptime in a human-readable format
+     */
+    private function formatUptime(int $seconds): string {
+        $days = floor($seconds / 86400);
+        $hours = floor(($seconds % 86400) / 3600);
+        $minutes = floor(($seconds % 3600) / 60);
+        $secs = $seconds % 60;
+
+        $parts = [];
+        if ($days > 0) $parts[] = $days . 'd';
+        if ($hours > 0) $parts[] = $hours . 'h';
+        if ($minutes > 0) $parts[] = $minutes . 'm';
+        $parts[] = $secs . 's';
+
+        return implode(' ', $parts);
+    }
+
+    /**
+     * Format bytes in a human-readable format
+     */
+    private function formatBytes(int $bytes): string {
+        $units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        $bytes = max($bytes, 0);
+        $pow = floor(($bytes ? log($bytes) : 0) / log(1024));
+        $pow = min($pow, count($units) - 1);
+
+        $bytes /= pow(1024, $pow);
+
+        return round($bytes, 2) . ' ' . $units[$pow];
+    }
+
+    /**
+     * Get server statistics as an array
+     */
+    public function getServerStats(): array {
+        $uptime = time() - $this->startTime;
+
+        return [
+            'server_info' => [
+                'name' => $this->config['name'] ?? 'Unknown',
+                'network' => $this->config['net'] ?? 'Unknown',
+                'version' => $this->config['version'] ?? 'Unknown',
+                'description' => $this->config['description'] ?? 'No description',
+                'running' => $this->running,
+                'uptime' => $uptime,
+                'uptime_formatted' => $this->formatUptime($uptime),
+                'start_time' => $this->startTime,
+                'current_time' => time()
+            ],
+            'connections' => [
+                'connected_users' => count($this->users),
+                'active_channels' => count($this->channels),
+                'server_links' => count($this->serverLinks),
+                'max_users' => $this->config['max_users'] ?? 50,
+                'available_slots' => ($this->config['max_users'] ?? 50) - count($this->users)
+            ],
+            'memory' => [
+                'current' => memory_get_usage(true),
+                'peak' => memory_get_peak_usage(true),
+                'limit' => ini_get('memory_limit')
+            ],
+            'system' => [
+                'php_version' => PHP_VERSION,
+                'memory_limit' => ini_get('memory_limit'),
+                'max_execution_time' => ini_get('max_execution_time'),
+                'extensions' => [
+                    'sockets' => extension_loaded('sockets'),
+                    'json' => extension_loaded('json'),
+                    'openssl' => extension_loaded('openssl'),
+                    'pcntl' => extension_loaded('pcntl'),
+                    'posix' => extension_loaded('posix'),
+                    'mbstring' => extension_loaded('mbstring')
+                ]
+            ]
+        ];
+    }
+
+    /**
+     * Manually trigger status display (useful for debugging or monitoring)
+     */
+    public function showStatus(): void {
+        $this->displayStatus();
     }
 }

@@ -8,6 +8,7 @@
 $config = [
     'name' => 'localhost',                   // Server Name
     'net' => 'Lokaler-IRC',                  // Netzwerk Name
+    'network_name' => 'Lokaler-IRC',         // Network Name (for ISUPPORT)
     'max_len' => 512,                        // Maximale Paketlänge
     'max_users' => 50,                       // Maximale Anzahl von Benutzern
     'port' => 6667,                          // Standard IRC-Port
@@ -33,12 +34,12 @@ $config = [
     ],
     'storage_dir' => __DIR__ . '/storage',   // Verzeichnis für Datenspeicherung
     'log_to_console' => true,                // Log in Konsole anzeigen
-    
+
     // Admin-Informationen für den ADMIN-Befehl
     'admin_name' => 'PHP-IRCd Administrator',  // Administrator-Name
     'admin_email' => 'admin@example.com',      // Administrator-E-Mail
     'admin_location' => 'Local',               // Server-Standort
-    
+
     // Server-Informationen für den INFO-Befehl
     'server_info' => [
         'PHP-IRCd Server based on Danoserv',
@@ -47,13 +48,13 @@ $config = [
         'Originally created by Daniel Danopia (2008)',
         'With web interface for easy usage'
     ],
-    
+
     // Server-zu-Server-Kommunikation
     'enable_server_links' => false,           // Server-zu-Server-Verbindungen aktivieren
     'server_password' => '',                  // Passwort für Server-Verbindungen
     'hub_mode' => false,                      // Server als Hub betreiben (vermittelt zwischen Servern)
     'auto_connect_servers' => [],             // Automatisch mit diesen Servern verbinden
-    
+
     // IRCv3-Features
     'cap_enabled' => true,                    // IRCv3 Capability Negotiation aktivieren
     'sasl_enabled' => true,                   // SASL-Authentifizierung aktivieren
@@ -61,7 +62,7 @@ $config = [
     'sasl_users' => [                         // SASL-Benutzerkonten
         // Beispiel: 'id' => ['username' => 'user', 'password' => 'pass']
     ],
-    
+
     // IRCv3 erweiterte Features
     'ircv3_features' => [                     // IRCv3 Feature-Set
         'multi-prefix' => true,               // Mehrere Präfixe für Benutzer im Kanal
@@ -79,15 +80,15 @@ $config = [
         'cap-notify' => true,                 // Benachrichtigungen über CAP-Änderungen
         'chghost' => true,                    // Host-Änderungsbenachrichtigungen
     ],
-    
+
     'chathistory_max_messages' => 100,        // Maximale Anzahl von Nachrichten in der Chathistorie
-    
+
     // IP-Filtering-Einstellungen
     'ip_filtering_enabled' => false,          // IP-Filterung aktivieren/deaktivieren
     'ip_whitelist' => [],                     // Whitelist von erlaubten IP-Adressen
     'ip_blacklist' => [],                     // Blacklist von verbotenen IP-Adressen
     'ip_filter_mode' => 'blacklist',          // Filtermodus: 'blacklist' oder 'whitelist'
-    
+
     // Erweiterte Funktionen
     'cloak_hostnames' => true,                // Hostnames verschleiern
     'max_watch_entries' => 128,               // Maximale Anzahl von WATCH-Einträgen
@@ -96,3 +97,5 @@ $config = [
     'default_channel_modes' => 'nt',          // Standard-Kanalmodi
     'max_channels_per_user' => 10,            // Maximale Anzahl von Kanälen pro Benutzer
 ];
+
+return $config;
