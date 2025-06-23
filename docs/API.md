@@ -1,8 +1,8 @@
-# PHP-IRCd API Dokumentation
+# PHP-IRCd API Documentation
 
-## Authentifizierung
+## Authentication
 
-### Login (JWT + Refresh-Token)
+### Login (JWT + Refresh Token)
 
 **POST** `/api/login`
 
@@ -23,7 +23,7 @@
 }
 ```
 
-### Token-Refresh
+### Token Refresh
 
 **POST** `/api/refresh`
 
@@ -46,19 +46,19 @@
 
 **GET** `/api/oauth/login?provider=google|github`
 
-- Leitet zu Google/GitHub weiter
+- Redirects to Google/GitHub
 
 **GET** `/api/oauth/callback?provider=google|github&code=...`
 
-- Tauscht Code gegen Token, gibt JWT + Refresh-Token zurück
+- Exchanges code for token, returns JWT + refresh token
 
 ---
 
-## User-Session
+## User Session
 
-### Eigene User-Info
+### Own User Info
 
-**GET** `/api/me` _(JWT erforderlich)_
+**GET** `/api/me` _(JWT required)_
 **Header:** `Authorization: Bearer <JWT>`
 **Response:**
 
@@ -73,21 +73,21 @@
 
 **POST** `/api/logout`
 
-- (Clientseitig, JWT einfach löschen)
+- (Client-side, just delete JWT)
 
 ---
 
-## Channel-Management
+## Channel Management
 
-### Channel-Liste
+### Channel List
 
 **GET** `/api/channels`
 
-### Channel-Details
+### Channel Details
 
 **GET** `/api/channels/{name}`
 
-### Channel erstellen
+### Create Channel
 
 **POST** `/api/channels`
 
@@ -97,21 +97,21 @@
 }
 ```
 
-### Channel beitreten
+### Join Channel
 
 **POST** `/api/channels/{name}/join`
 
-### Channel verlassen
+### Leave Channel
 
 **POST** `/api/channels/{name}/part`
 
-### Channel löschen
+### Delete Channel
 
 **DELETE** `/api/channels/{name}`
 
 ---
 
-## Channel-Moderation
+## Channel Moderation
 
 **POST** `/api/channels/{name}/moderate`
 
@@ -124,20 +124,20 @@
 
 ---
 
-## Nachrichten
+## Messages
 
-### Nachricht an Channel
+### Message to Channel
 
 **POST** `/api/messages`
 
 ```json
 {
   "target": "#channel",
-  "message": "Hallo Welt!"
+  "message": "Hello World!"
 }
 ```
 
-### Private Nachricht
+### Private Message
 
 **POST** `/api/messages/private`
 
@@ -150,25 +150,25 @@
 
 ---
 
-## Channel-Infos
+## Channel Info
 
-### Channel-User-Liste
+### Channel User List
 
 **GET** `/api/channels/{name}/users`
 
-### Channel-Nachrichtenverlauf
+### Channel Message History
 
 **GET** `/api/channels/{name}/messages?limit=50`
 
 ---
 
-## User-Liste
+## User List
 
 **GET** `/api/users`
 
 ---
 
-## Server-Status
+## Server Status
 
 **GET** `/api/status`
 
@@ -178,8 +178,8 @@
 
 **URL:** `ws://localhost:8081/?token=<JWT>`
 
-- Authentifizierung per JWT im Query-String
-- Nachrichtenformat:
+- Authenticate via JWT in query string
+- Message format:
 
 ```json
 {
@@ -189,15 +189,15 @@
 }
 ```
 
-- Events: Neue Nachrichten, User-Join/Part, Channel-Änderungen (je nach Implementierung)
+- Events: New messages, user join/part, channel changes (depending on implementation)
 
 ---
 
-## Fehlerbehandlung
+## Error Handling
 
-Alle Fehler werden als JSON mit `success: false` und `error`-Feld zurückgegeben.
+All errors are returned as JSON with `success: false` and an `error` field.
 
-**Beispiel:**
+**Example:**
 
 ```json
 {
@@ -208,38 +208,38 @@ Alle Fehler werden als JSON mit `success: false` und `error`-Feld zurückgegeben
 
 ---
 
-## Hinweise
+## Notes
 
-- Alle Endpunkte (außer `/login`, `/refresh`, `/oauth/*`) erfordern einen gültigen JWT im Header: `Authorization: Bearer <JWT>`
-- Für OAuth2 müssen die Redirect-URIs und Client-IDs/-Secrets in der `config.php` hinterlegt werden.
-- Channel-Moderation ist nur für Operatoren möglich.
-- Refresh-Tokens sind im Demo-Modus temporär, für Produktion persistent speichern!
+- All endpoints (except `/login`, `/refresh`, `/oauth/*`) require a valid JWT in the header: `Authorization: Bearer <JWT>`
+- For OAuth2, redirect URIs and client IDs/secrets must be set in `config.php`.
+- Channel moderation is only possible for operators.
+- Refresh tokens are temporary in demo mode; persist them for production!
 
 ---
 
-## Beispiel: Channel erstellen und beitreten (curl)
+## Example: Create and Join Channel (curl)
 
 ```bash
 # Login
 TOKEN=$(curl -s -X POST http://localhost:8080/api/login -d '{"nick":"admin","password":"test123"}' -H 'Content-Type: application/json' | jq -r .token)
 
-# Channel erstellen
+# Create channel
 curl -X POST http://localhost:8080/api/channels -H "Authorization: Bearer $TOKEN" -d '{"name":"#test"}' -H 'Content-Type: application/json'
 
-# Channel beitreten
+# Join channel
 curl -X POST http://localhost:8080/api/channels/%23test/join -H "Authorization: Bearer $TOKEN"
 ```
 
 ---
 
-## Beispiel: OAuth2-Login (Ablauf)
+## Example: OAuth2 Login (Flow)
 
-1. Rufe `/api/oauth/login?provider=google` oder `/api/oauth/login?provider=github` im Browser auf
-2. Nach Login und Consent wirst du zu `/api/oauth/callback?...` weitergeleitet
-3. Die API gibt ein JWT + Refresh-Token zurück
+1. Open `/api/oauth/login?provider=google` or `/api/oauth/login?provider=github` in your browser
+2. After login and consent, you will be redirected to `/api/oauth/callback?...`
+3. The API returns a JWT + refresh token
 
 ---
 
-## Kontakt & Support
+## Contact & Support
 
-Für Fragen und Erweiterungen siehe README oder erstelle ein Issue.
+For questions and extensions, see the README or create an issue.

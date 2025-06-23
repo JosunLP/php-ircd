@@ -59,9 +59,9 @@ if (!$isCliMode) {
         handle_api_request($apiPath, $requestMethod, $server, $config);
         exit;
     } else {
-        // Kein Webinterface mehr vorhanden
+        // No web interface available anymore
         header('Content-Type: text/plain');
-        echo "PHP-IRCd: Webinterface entfernt. Bitte nutze die API unter /api/.";
+        echo "PHP-IRCd: Web interface removed. Please use the API at /api/.";
         exit;
     }
 }

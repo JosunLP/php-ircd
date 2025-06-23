@@ -73,7 +73,7 @@ class UserCommand extends CommandBase {
         $user->send(":{$config['name']} 005 {$nick} CHARSET=UTF-8 FNC NICKLEN=30 CHANNELLEN=50 TOPICLEN=390 DEAF=D TARGMAX=NAMES:1,LIST:1,KICK:1,WHOIS:1,PRIVMSG:4,NOTICE:4,ACCEPT:,MONITOR: EXTBAN=$,ajrxz :are supported by this server");
         $user->send(":{$config['name']} 005 {$nick} SAFELIST ELIST=CTU CPRIVMSG CNOTICE KNOCK MONITOR=100 WHOX ETRACE HELP :are supported by this server");
 
-        // Statistiken senden
+        // Send statistics
         $userCount = count($this->server->getUsers());
         $channelCount = count($this->server->getChannels());
         $operCount = 0;

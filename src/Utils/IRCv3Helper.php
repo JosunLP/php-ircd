@@ -160,17 +160,17 @@ class IRCv3Helper {
     }
 
     /**
-     * Erstellt einen Batch-Header für eine Gruppe von Nachrichten
+     * Creates a batch header for a group of messages
      *
-     * @param string $type Der Batch-Typ
-     * @param array $params Zusätzliche Parameter für den Batch
-     * @return string Die Batch-ID
+     * @param string $type The batch type
+     * @param array $params Additional parameters for the batch
+     * @return string The batch ID
      */
     public static function createBatch(string $type, array $params = []): string {
-        // Eindeutige Batch-ID generieren
+        // Generate unique batch ID
         $batchId = $type . '-' . uniqid();
 
-        // Parameter zum Batch hinzufügen
+        // Add parameters to batch
         $paramString = implode(' ', $params);
         if (!empty($paramString)) {
             $paramString = ' ' . $paramString;
@@ -180,39 +180,39 @@ class IRCv3Helper {
     }
 
     /**
-     * Fügt ein Batch-Tag zu einer Nachricht hinzu
+     * Adds a batch tag to a message
      *
-     * @param string $message Die Nachricht
-     * @param string $batchId Die Batch-ID
-     * @return string Die modifizierte Nachricht
+     * @param string $message The message
+     * @param string $batchId The batch ID
+     * @return string The modified message
      */
     public static function addBatchTag(string $message, string $batchId): string {
-        // Wenn die Nachricht bereits Tags hat, füge batch als weiteres Tag hinzu
+        // If the message already has tags, add batch as another tag
         if (substr($message, 0, 1) === '@') {
-            // Tags von der Nachricht trennen
+            // Separate tags from the message
             $parts = explode(' ', $message, 2);
             $tags = $parts[0];
             $remainingMessage = $parts[1];
 
-            // batch-Tag hinzufügen, wenn noch nicht vorhanden
+            // Add batch tag if not already present
             if (strpos($tags, 'batch=') === false) {
                 return "{$tags};batch={$batchId} {$remainingMessage}";
             }
 
-            // Ansonsten Nachricht unverändert zurückgeben
+            // Otherwise return message unchanged
             return $message;
         }
 
-        // Wenn keine Tags vorhanden sind, füge batch als neues Tag hinzu
+        // If no tags are present, add batch as a new tag
         return "@batch={$batchId} {$message}";
     }
 
     /**
-     * Fügt account-Tag zu einer Nachricht hinzu, wenn der Benutzer authentifiziert ist
+     * Adds account tag to a message if the user is authenticated
      *
-     * @param string $message Die Nachricht
-     * @param User $user Der Benutzer, von dem die Nachricht stammt
-     * @return string Die möglicherweise modifizierte Nachricht mit account-Tag
+     * @param string $message The message
+     * @param User $user The user sending the message
+     * @return string The possibly modified message with account tag
      */
     public static function addAccountTagIfSupported(string $message, User $user): string {
         if ($user->hasCapability('account-tag') && $user->isSaslAuthenticated()) {

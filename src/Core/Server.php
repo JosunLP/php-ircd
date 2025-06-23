@@ -1324,10 +1324,10 @@ class Server {
     }
 
     /**
-     * Überprüft, ob eine bestimmte Capability unterstützt wird
+     * Checks if a specific capability is supported
      *
-     * @param string $capability Die zu überprüfende Capability
-     * @return bool True, wenn die Capability unterstützt wird
+     * @param string $capability The capability to check
+     * @return bool True if the capability is supported
      */
     public function isCapabilitySupported(string $capability): bool {
         return isset($this->supportedCapabilities[$capability]) &&

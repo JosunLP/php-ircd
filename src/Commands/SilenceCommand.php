@@ -7,7 +7,7 @@ use PhpIrcd\Models\User;
 class SilenceCommand extends CommandBase {
     /**
      * Executes the SILENCE command
-     * 
+     *
      * @param User $user The executing user
      * @param array $args The command arguments
      */
@@ -16,10 +16,10 @@ class SilenceCommand extends CommandBase {
         if (!$this->ensureRegistered($user)) {
             return;
         }
-        
+
         $config = $this->server->getConfig();
         $nick = $user->getNick();
-        
+
         // Wenn kein Parameter angegeben wurde, Silenced-Liste anzeigen
         if (!isset($args[1])) {
             $silenced = $user->getSilencedMasks();
@@ -32,17 +32,17 @@ class SilenceCommand extends CommandBase {
             }
             return;
         }
-        
+
         // Parameter verarbeiten
         $mask = $args[1];
-        
+
         // Wenn der Mask mit + oder - beginnt, führe entsprechende Aktion aus
         $addMode = true;
         if (substr($mask, 0, 1) === '+' || substr($mask, 0, 1) === '-') {
             $addMode = substr($mask, 0, 1) === '+';
             $mask = substr($mask, 1);
         }
-        
+
         if ($addMode) {
             // Mask zur Silence-Liste hinzufügen
             if ($user->addSilencedMask($mask)) {
@@ -51,7 +51,7 @@ class SilenceCommand extends CommandBase {
                 $user->send(":{$config['name']} 512 {$nick} :Cannot add to silence list, already at maximum entries");
             }
         } else {
-            // Mask von der Silence-Liste entfernen
+            // Remove mask from silence list
             if ($user->removeSilencedMask($mask)) {
                 $user->send(":{$config['name']} 950 {$nick} {$mask} :Removed from silence list");
             } else {

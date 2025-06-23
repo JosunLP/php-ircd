@@ -17,7 +17,7 @@ class User {
     private $connectTime;  // Neu: Verbindungszeit speichern
     private $modes = [];
     private $away = null;
-    private $isStreamSocket = false; // Flag für Stream-Socket (SSL)
+    private $isStreamSocket = false; // Flag for Stream-Socket (SSL)
     private $password = null; // Neu: Passwort für spätere Auth speichern
     private $saslInProgress = false; // Neu: SASL-Authentifizierung läuft
     private $saslAuthenticated = false; // Neu: SASL-Authentifizierung erfolgreich
@@ -26,10 +26,10 @@ class User {
     private $watchList = []; // Neu: Liste von beobachteten Nicknames (WATCH)
     private $saslMechanism = null; // Speichert den SASL-Mechanismus während der Authentifizierung
     private $capabilityNegotiationInProgress = false; // Ob CAP-Verhandlung gerade läuft
-    private $isRemoteUser = false; // Neu: Flag für Remote-Benutzer
+    private $isRemoteUser = false; // Neu: Flag for Remote-Benutzer
     private $remoteServer = null; // Neu: Name des Remote-Servers
     private $server = null; // Neu: Referenz auf den Server, in dem der Benutzer registriert ist
-    private $undergoing302Negotiation = false; // Flag für IRCv3.2 (302) CAP-Verhandlung
+    private $undergoing302Negotiation = false; // Flag for IRCv3.2 (302) CAP-Verhandlung
 
     /**
      * Die maximale Anzahl von Einträgen in der Watch-Liste
@@ -140,10 +140,10 @@ class User {
         if ($pos !== false) {
             $command = substr($this->buffer, 0, $pos);
             $this->buffer = substr($this->buffer, $pos + 1);
-            $result = trim($command); // Steuerzeichen entfernen
+            $result = trim($command); // Remove control characters
             return $result;
         } elseif ($pos = strpos($this->buffer, "\r")) {
-            // Manche IRC-Clients senden nur \r als Zeilenende
+            // Some IRC clients only send \r as line ending
             $command = substr($this->buffer, 0, $pos);
             $this->buffer = substr($this->buffer, $pos + 1);
             $result = trim($command);
@@ -152,14 +152,14 @@ class User {
 
         try {
             if ($this->isStreamSocket) {
-                // Stream-Sockets (SSL) lesen
+                // Read stream sockets (SSL)
                 $data = @fread($this->socket, $maxLen);
             } else {
-                // Normale Sockets lesen
+                // Read normal sockets
                 $data = @socket_read($this->socket, $maxLen);
             }
 
-            // Wenn false, prüfen ob es ein echter Fehler ist oder nur keine Daten verfügbar
+            // If false, check if it is a real error or just no data available
             if ($data === false) {
                 if ($this->isStreamSocket) {
                     // Bei Stream-Sockets prüfen ob EOF erreicht wurde
@@ -191,10 +191,10 @@ class User {
             if ($pos !== false) {
                 $command = substr($this->buffer, 0, $pos);
                 $this->buffer = substr($this->buffer, $pos + 1);
-                $result = trim($command); // Steuerzeichen entfernen
+                $result = trim($command); // Remove control characters
                 return $result;
             } elseif ($pos = strpos($this->buffer, "\r")) {
-                // Manche IRC-Clients senden nur \r als Zeilenende
+                // Some IRC clients only send \r as line ending
                 $command = substr($this->buffer, 0, $pos);
                 $this->buffer = substr($this->buffer, $pos + 1);
                 $result = trim($command);
