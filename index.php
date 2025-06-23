@@ -16,7 +16,6 @@ require_once __DIR__ . '/vendor/autoload.php';
 use PhpIrcd\Core\Config;
 use PhpIrcd\Core\Server;
 use PhpIrcd\Utils\Logger;
-use PhpIrcd\Web\WebInterface;
 
 // Set error reporting
 error_reporting(E_ALL);
@@ -41,3 +40,28 @@ $logger = new Logger($config['log_level'] ?? 'info');
 $server = new Server($config, false);
 
 $server->start();
+
+if (!$isCliMode) {
+    // Einfache API-Router-Logik
+    $requestUri = $_SERVER['REQUEST_URI'] ?? '';
+    $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+    header('Access-Control-Allow-Origin: *');
+    header('Access-Control-Allow-Headers: Content-Type');
+    header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+    if ($requestMethod === 'OPTIONS') {
+        http_response_code(204);
+        exit;
+    }
+
+    if (strpos($requestUri, '/api/') === 0) {
+        $apiPath = substr($requestUri, 5); // nach /api/
+        require_once __DIR__ . '/src/Web/api_router.php';
+        handle_api_request($apiPath, $requestMethod, $server, $config);
+        exit;
+    } else {
+        // Kein Webinterface mehr vorhanden
+        header('Content-Type: text/plain');
+        echo "PHP-IRCd: Webinterface entfernt. Bitte nutze die API unter /api/.";
+        exit;
+    }
+}

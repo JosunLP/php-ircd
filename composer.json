@@ -3,7 +3,10 @@
     "description": "Modernized IRC server in PHP",
     "type": "project",
     "require": {
-        "php": "^8.0"
+        "php": "^8.0",
+        "firebase/php-jwt": "^6.11",
+        "cboden/ratchet": "^0.4.4",
+        "react/socket": "^1.16"
     },
     "autoload": {
         "psr-4": {
