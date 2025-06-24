@@ -142,7 +142,7 @@ class User {
             $this->buffer = substr($this->buffer, $pos + 1);
             $result = trim($command); // Remove control characters
             return $result;
-        } elseif ($pos = strpos($this->buffer, "\r")) {
+        } elseif (($pos = strpos($this->buffer, "\r")) !== false) {
             // Some IRC clients only send \r as line ending
             $command = substr($this->buffer, 0, $pos);
             $this->buffer = substr($this->buffer, $pos + 1);
@@ -193,7 +193,7 @@ class User {
                 $this->buffer = substr($this->buffer, $pos + 1);
                 $result = trim($command); // Remove control characters
                 return $result;
-            } elseif ($pos = strpos($this->buffer, "\r")) {
+            } elseif (($pos = strpos($this->buffer, "\r")) !== false) {
                 // Some IRC clients only send \r as line ending
                 $command = substr($this->buffer, 0, $pos);
                 $this->buffer = substr($this->buffer, $pos + 1);
