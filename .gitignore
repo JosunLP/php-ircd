@@ -1,2 +1,33 @@
+# Composer
+/vendor/
+composer.phar
 
+# IDE folders
 .idea/
+.vscode/
+*.sublime-*
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Cache and logs
+/var/cache/*
+/var/logs/*
+/logs/*
+*.log
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Build directories
+/build/
+/dist/
+
+# PHPUnit
+/phpunit.xml
+.phpunit.result.cache
+
+/storage/*

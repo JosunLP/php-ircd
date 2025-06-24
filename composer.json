@@ -1,0 +1,54 @@
+{
+    "name": "php-ircd/server",
+    "description": "Modernized IRC server in PHP",
+    "type": "project",
+    "require": {
+        "php": "^8.0",
+        "firebase/php-jwt": "^6.11",
+        "cboden/ratchet": "^0.4.4",
+        "react/socket": "^1.16"
+    },
+    "autoload": {
+        "psr-4": {
+            "PhpIrcd\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Daniel Danopia",
+            "email": "me@danopia.net",
+            "role": "Original Author"
+        },
+        {
+            "name": "Zhaofeng Li",
+            "homepage": "https://zhaofeng.li/",
+            "role": "Contributor"
+        },
+        {
+            "name": "Easton Elliott",
+            "homepage": "https://github.com/snacsnoc",
+            "role": "Contributor"
+        },
+        {
+            "name": "Avram Lyon",
+            "homepage": "https://github.com/avram",
+            "role": "Contributor"
+        },
+        {
+            "name": "henrikhjelm",
+            "homepage": "https://github.com/henrikhjelm",
+            "role": "Contributor"
+        },
+        {
+            "name": "Jonas Pfalzgraf - JosunLP",
+            "homepage": "https://josunlp.de",
+            "email": "support@josunlp.de",
+            "role": "Contributor"
+        }
+    ],
+    "minimum-stability": "stable",
+    "require-dev": {
+        "phpunit/phpunit": "^9.5"
+    },
+    "license": "MIT"
+}

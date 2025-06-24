@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="" tests="61" assertions="93" errors="22" warnings="0" failures="4" skipped="0" time="1.151940">
+    <testsuite name="Unit" tests="61" assertions="93" errors="22" warnings="0" failures="4" skipped="0" time="1.151940">
+      <testsuite name="Tests\Unit\ChannelTest" file="D:\git\php-ircd\tests\Unit\ChannelTest.php" tests="17" assertions="0" errors="17" warnings="0" failures="0" skipped="0" time="0.016553">
+        <testcase name="testChannelInitialization" class="Tests\Unit\ChannelTest" classname="Tests.Unit.ChannelTest" file="D:\git\php-ircd\tests\Unit\ChannelTest.php" line="40" assertions="0" time="0.012696">
+          <error type="PHPUnit\Framework\MockObject\ClassIsFinalException">Tests\Unit\ChannelTest::testChannelInitialization
+PHPUnit\Framework\MockObject\ClassIsFinalException: Class "Socket" is declared "final" and cannot be doubled
+
+D:\git\php-ircd\tests\Unit\ChannelTest.php:20</error>
+        </testcase>
+        <testcase name="testAddAndRemoveUser" class="Tests\Unit\ChannelTest" classname="Tests.Unit.ChannelTest" file="D:\git\php-ircd\tests\Unit\ChannelTest.php" line="50" assertions="0" time="0.000165">
+          <error type="PHPUnit\Framework\MockObject\ClassIsFinalException">Tests\Unit\ChannelTest::testAddAndRemoveUser
+PHPUnit\Framework\MockObject\ClassIsFinalException: Class "Socket" is declared "final" and cannot be doubled
+
+D:\git\php-ircd\tests\Unit\ChannelTest.php:20</error>
+        </testcase>
+        <testcase name="testAddUserAsOperator" class="Tests\Unit\ChannelTest" classname="Tests.Unit.ChannelTest" file="D:\git\php-ircd\tests\Unit\ChannelTest.php" line="68" assertions="0" time="0.000137">
+          <error type="PHPUnit\Framework\MockObject\ClassIsFinalException">Tests\Unit\ChannelTest::testAddUserAsOperator
+PHPUnit\Framework\MockObject\ClassIsFinalException: Class "Socket" is declared "final" and cannot be doubled
+
+D:\git\php-ircd\tests\Unit\ChannelTest.php:20</error>
+        </testcase>
+        <testcase name="testSetAndGetTopic" class="Tests\Unit\ChannelTest" classname="Tests.Unit.ChannelTest" file="D:\git\php-ircd\tests\Unit\ChannelTest.php" line="76" assertions="0" time="0.000236">
+          <error type="PHPUnit\Framework\MockObject\ClassIsFinalException">Tests\Unit\ChannelTest::testSetAndGetTopic
+PHPUnit\Framework\MockObject\ClassIsFinalException: Class "Socket" is declared "final" and cannot be doubled
+
+D:\git\php-ircd\tests\Unit\ChannelTest.php:20</error>
+        </testcase>
+        <testcase name="testSetAndGetModes" class="Tests\Unit\ChannelTest" classname="Tests.Unit.ChannelTest" file="D:\git\php-ircd\tests\Unit\ChannelTest.php" line="85" assertions="0" time="0.000148">
+          <error type="PHPUnit\Framework\MockObject\ClassIsFinalException">Tests\Unit\ChannelTest::testSetAndGetModes
+PHPUnit\Framework\MockObject\ClassIsFinalException: Class "Socket" is declared "final" and cannot be doubled
+
+D:\git\php-ircd\tests\Unit\ChannelTest.php:20</error>
+        </testcase>
+        <testcase name="testUserModes" class="Tests\Unit\ChannelTest" classname="Tests.Unit.ChannelTest" file="D:\git\php-ircd\tests\Unit\ChannelTest.php" line="110" assertions="0" time="0.000185">
+          <error type="PHPUnit\Framework\MockObject\ClassIsFinalException">Tests\Unit\ChannelTest::testUserModes
+PHPUnit\Framework\MockObject\ClassIsFinalException: Class "Socket" is declared "final" and cannot be doubled
+
+D:\git\php-ircd\tests\Unit\ChannelTest.php:20</error>
+        </testcase>
+        <testcase name="testBans" class="Tests\Unit\ChannelTest" classname="Tests.Unit.ChannelTest" file="D:\git\php-ircd\tests\Unit\ChannelTest.php" line="149" assertions="0" time="0.000958">
+          <error type="PHPUnit\Framework\MockObject\ClassIsFinalException">Tests\Unit\ChannelTest::testBans
+PHPUnit\Framework\MockObject\ClassIsFinalException: Class "Socket" is declared "final" and cannot be doubled
+
+D:\git\php-ircd\tests\Unit\ChannelTest.php:20</error>
+        </testcase>
+        <testcase name="testBanExceptions" class="Tests\Unit\ChannelTest" classname="Tests.Unit.ChannelTest" file="D:\git\php-ircd\tests\Unit\ChannelTest.php" line="174" assertions="0" time="0.000169">
+          <error type="PHPUnit\Framework\MockObject\ClassIsFinalException">Tests\Unit\ChannelTest::testBanExceptions
+PHPUnit\Framework\MockObject\ClassIsFinalException: Class "Socket" is declared "final" and cannot be doubled
+
+D:\git\php-ircd\tests\Unit\ChannelTest.php:20</error>
+        </testcase>
+        <testcase name="testInviteOnly" class="Tests\Unit\ChannelTest" classname="Tests.Unit.ChannelTest" file="D:\git\php-ircd\tests\Unit\ChannelTest.php" line="196" assertions="0" time="0.000229">
+          <error type="PHPUnit\Framework\MockObject\ClassIsFinalException">Tests\Unit\ChannelTest::testInviteOnly
+PHPUnit\Framework\MockObject\ClassIsFinalException: Class "Socket" is declared "final" and cannot be doubled
+
+D:\git\php-ircd\tests\Unit\ChannelTest.php:20</error>
+        </testcase>
+        <testcase name="testCanJoin" class="Tests\Unit\ChannelTest" classname="Tests.Unit.ChannelTest" file="D:\git\php-ircd\tests\Unit\ChannelTest.php" line="213" assertions="0" time="0.000151">
+          <error type="PHPUnit\Framework\MockObject\ClassIsFinalException">Tests\Unit\ChannelTest::testCanJoin
+PHPUnit\Framework\MockObject\ClassIsFinalException: Class "Socket" is declared "final" and cannot be doubled
+
+D:\git\php-ircd\tests\Unit\ChannelTest.php:20</error>
+        </testcase>
+        <testcase name="testChannelNameValidation" class="Tests\Unit\ChannelTest" classname="Tests.Unit.ChannelTest" file="D:\git\php-ircd\tests\Unit\ChannelTest.php" line="241" assertions="0" time="0.000141">
+          <error type="PHPUnit\Framework\MockObject\ClassIsFinalException">Tests\Unit\ChannelTest::testChannelNameValidation
+PHPUnit\Framework\MockObject\ClassIsFinalException: Class "Socket" is declared "final" and cannot be doubled
+
+D:\git\php-ircd\tests\Unit\ChannelTest.php:20</error>
+        </testcase>
+        <testcase name="testPermanentChannel" class="Tests\Unit\ChannelTest" classname="Tests.Unit.ChannelTest" file="D:\git\php-ircd\tests\Unit\ChannelTest.php" line="261" assertions="0" time="0.000186">
+          <error type="PHPUnit\Framework\MockObject\ClassIsFinalException">Tests\Unit\ChannelTest::testPermanentChannel
+PHPUnit\Framework\MockObject\ClassIsFinalException: Class "Socket" is declared "final" and cannot be doubled
+
+D:\git\php-ircd\tests\Unit\ChannelTest.php:20</error>
+        </testcase>
+        <testcase name="testGetKeyAndLimit" class="Tests\Unit\ChannelTest" classname="Tests.Unit.ChannelTest" file="D:\git\php-ircd\tests\Unit\ChannelTest.php" line="272" assertions="0" time="0.000152">
+          <error type="PHPUnit\Framework\MockObject\ClassIsFinalException">Tests\Unit\ChannelTest::testGetKeyAndLimit
+PHPUnit\Framework\MockObject\ClassIsFinalException: Class "Socket" is declared "final" and cannot be doubled
+
+D:\git\php-ircd\tests\Unit\ChannelTest.php:20</error>
+        </testcase>
+        <testcase name="testMessageHistory" class="Tests\Unit\ChannelTest" classname="Tests.Unit.ChannelTest" file="D:\git\php-ircd\tests\Unit\ChannelTest.php" line="287" assertions="0" time="0.000398">
+          <error type="PHPUnit\Framework\MockObject\ClassIsFinalException">Tests\Unit\ChannelTest::testMessageHistory
+PHPUnit\Framework\MockObject\ClassIsFinalException: Class "Socket" is declared "final" and cannot be doubled
+
+D:\git\php-ircd\tests\Unit\ChannelTest.php:20</error>
+        </testcase>
+        <testcase name="testIsEmpty" class="Tests\Unit\ChannelTest" classname="Tests.Unit.ChannelTest" file="D:\git\php-ircd\tests\Unit\ChannelTest.php" line="306" assertions="0" time="0.000205">
+          <error type="PHPUnit\Framework\MockObject\ClassIsFinalException">Tests\Unit\ChannelTest::testIsEmpty
+PHPUnit\Framework\MockObject\ClassIsFinalException: Class "Socket" is declared "final" and cannot be doubled
+
+D:\git\php-ircd\tests\Unit\ChannelTest.php:20</error>
+        </testcase>
+        <testcase name="testGetCreationTime" class="Tests\Unit\ChannelTest" classname="Tests.Unit.ChannelTest" file="D:\git\php-ircd\tests\Unit\ChannelTest.php" line="317" assertions="0" time="0.000174">
+          <error type="PHPUnit\Framework\MockObject\ClassIsFinalException">Tests\Unit\ChannelTest::testGetCreationTime
+PHPUnit\Framework\MockObject\ClassIsFinalException: Class "Socket" is declared "final" and cannot be doubled
+
+D:\git\php-ircd\tests\Unit\ChannelTest.php:20</error>
+        </testcase>
+        <testcase name="testRemoveUserFromModlists" class="Tests\Unit\ChannelTest" classname="Tests.Unit.ChannelTest" file="D:\git\php-ircd\tests\Unit\ChannelTest.php" line="325" assertions="0" time="0.000224">
+          <error type="PHPUnit\Framework\MockObject\ClassIsFinalException">Tests\Unit\ChannelTest::testRemoveUserFromModlists
+PHPUnit\Framework\MockObject\ClassIsFinalException: Class "Socket" is declared "final" and cannot be doubled
+
+D:\git\php-ircd\tests\Unit\ChannelTest.php:20</error>
+        </testcase>
+      </testsuite>
+      <testsuite name="Tests\Unit\ServerTest" file="D:\git\php-ircd\tests\Unit\ServerTest.php" tests="14" assertions="22" errors="5" warnings="0" failures="2" skipped="0" time="0.096635">
+        <testcase name="testServerInitialization" class="Tests\Unit\ServerTest" classname="Tests.Unit.ServerTest" file="D:\git\php-ircd\tests\Unit\ServerTest.php" line="97" assertions="3" time="0.033591"/>
+        <testcase name="testAddAndRemoveUser" class="Tests\Unit\ServerTest" classname="Tests.Unit.ServerTest" file="D:\git\php-ircd\tests\Unit\ServerTest.php" line="104" assertions="0" time="0.003747">
+          <error type="PHPUnit\Framework\MockObject\ClassIsFinalException">Tests\Unit\ServerTest::testAddAndRemoveUser
+PHPUnit\Framework\MockObject\ClassIsFinalException: Class "Socket" is declared "final" and cannot be doubled
+
+D:\git\php-ircd\tests\Unit\ServerTest.php:107</error>
+        </testcase>
+        <testcase name="testAddAndRemoveChannel" class="Tests\Unit\ServerTest" classname="Tests.Unit.ServerTest" file="D:\git\php-ircd\tests\Unit\ServerTest.php" line="126" assertions="5" time="0.021938"/>
+        <testcase name="testGetChannelWithNonExistentChannel" class="Tests\Unit\ServerTest" classname="Tests.Unit.ServerTest" file="D:\git\php-ircd\tests\Unit\ServerTest.php" line="148" assertions="1" time="0.003676"/>
+        <testcase name="testServerCapabilities" class="Tests\Unit\ServerTest" classname="Tests.Unit.ServerTest" file="D:\git\php-ircd\tests\Unit\ServerTest.php" line="154" assertions="1" time="0.004487">
+          <error type="PHPUnit\Framework\Error\Warning">Tests\Unit\ServerTest::testServerCapabilities
+Undefined array key "multi-prefix"
+
+D:\git\php-ircd\tests\Unit\ServerTest.php:159</error>
+        </testcase>
+        <testcase name="testIsCapabilitySupported" class="Tests\Unit\ServerTest" classname="Tests.Unit.ServerTest" file="D:\git\php-ircd\tests\Unit\ServerTest.php" line="176" assertions="3" time="0.002365"/>
+        <testcase name="testServerHost" class="Tests\Unit\ServerTest" classname="Tests.Unit.ServerTest" file="D:\git\php-ircd\tests\Unit\ServerTest.php" line="183" assertions="1" time="0.003834">
+          <failure type="PHPUnit\Framework\ExpectationFailedException">Tests\Unit\ServerTest::testServerHost
+Failed asserting that two strings are equal.
+--- Expected
++++ Actual
+@@ @@
+-'testserver'
++'127.0.0.1'
+
+D:\git\php-ircd\tests\Unit\ServerTest.php:186</failure>
+        </testcase>
+        <testcase name="testServerStartTime" class="Tests\Unit\ServerTest" classname="Tests.Unit.ServerTest" file="D:\git\php-ircd\tests\Unit\ServerTest.php" line="189" assertions="4" time="0.005301"/>
+        <testcase name="testUpdateConfig" class="Tests\Unit\ServerTest" classname="Tests.Unit.ServerTest" file="D:\git\php-ircd\tests\Unit\ServerTest.php" line="197" assertions="2" time="0.002905">
+          <failure type="PHPUnit\Framework\ExpectationFailedException">Tests\Unit\ServerTest::testUpdateConfig
+Failed asserting that 6667 matches expected 6668.
+
+D:\git\php-ircd\tests\Unit\ServerTest.php:204</failure>
+        </testcase>
+        <testcase name="testRegisterPermanentChannel" class="Tests\Unit\ServerTest" classname="Tests.Unit.ServerTest" file="D:\git\php-ircd\tests\Unit\ServerTest.php" line="208" assertions="0" time="0.003761">
+          <error type="PHPUnit\Framework\MockObject\ClassIsFinalException">Tests\Unit\ServerTest::testRegisterPermanentChannel
+PHPUnit\Framework\MockObject\ClassIsFinalException: Class "Socket" is declared "final" and cannot be doubled
+
+D:\git\php-ircd\tests\Unit\ServerTest.php:210</error>
+        </testcase>
+        <testcase name="testUnregisterPermanentChannel" class="Tests\Unit\ServerTest" classname="Tests.Unit.ServerTest" file="D:\git\php-ircd\tests\Unit\ServerTest.php" line="222" assertions="0" time="0.004473">
+          <error type="PHPUnit\Framework\MockObject\ClassIsFinalException">Tests\Unit\ServerTest::testUnregisterPermanentChannel
+PHPUnit\Framework\MockObject\ClassIsFinalException: Class "Socket" is declared "final" and cannot be doubled
+
+D:\git\php-ircd\tests\Unit\ServerTest.php:224</error>
+        </testcase>
+        <testcase name="testWhowasHistory" class="Tests\Unit\ServerTest" classname="Tests.Unit.ServerTest" file="D:\git\php-ircd\tests\Unit\ServerTest.php" line="240" assertions="0" time="0.002512">
+          <error type="PHPUnit\Framework\MockObject\ClassIsFinalException">Tests\Unit\ServerTest::testWhowasHistory
+PHPUnit\Framework\MockObject\ClassIsFinalException: Class "Socket" is declared "final" and cannot be doubled
+
+D:\git\php-ircd\tests\Unit\ServerTest.php:242</error>
+        </testcase>
+        <testcase name="testGetConnectionHandler" class="Tests\Unit\ServerTest" classname="Tests.Unit.ServerTest" file="D:\git\php-ircd\tests\Unit\ServerTest.php" line="257" assertions="1" time="0.001724"/>
+        <testcase name="testGetLogger" class="Tests\Unit\ServerTest" classname="Tests.Unit.ServerTest" file="D:\git\php-ircd\tests\Unit\ServerTest.php" line="263" assertions="1" time="0.002322"/>
+      </testsuite>
+      <testsuite name="Tests\Unit\UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" tests="30" assertions="71" errors="0" warnings="0" failures="2" skipped="0" time="1.038752">
+        <testcase name="testUserInitialization" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="27" assertions="7" time="0.007991"/>
+        <testcase name="testSetAndGetNick" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="38" assertions="1" time="0.000402"/>
+        <testcase name="testSetAndGetIdent" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="44" assertions="1" time="0.000267"/>
+        <testcase name="testSetAndGetRealname" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="50" assertions="1" time="0.000223"/>
+        <testcase name="testSetAndGetHost" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="56" assertions="1" time="0.000252"/>
+        <testcase name="testSetAndGetCloak" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="62" assertions="1" time="0.000528"/>
+        <testcase name="testSetAndGetOper" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="68" assertions="2" time="0.000222"/>
+        <testcase name="testUserRegistration" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="77" assertions="1" time="0.000260"/>
+        <testcase name="testUserRegistrationWithInvalidData" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="87" assertions="1" time="0.000265"/>
+        <testcase name="testSetAndGetAway" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="96" assertions="4" time="0.001221"/>
+        <testcase name="testSetAndGetModes" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="107" assertions="5" time="0.000392"/>
+        <testcase name="testSetAndGetPassword" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="121" assertions="1" time="0.000297"/>
+        <testcase name="testSetAndGetSaslStatus" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="127" assertions="2" time="0.000272"/>
+        <testcase name="testCapabilities" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="136" assertions="6" time="0.002306"/>
+        <testcase name="testClearCapabilities" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="153" assertions="3" time="0.000737"/>
+        <testcase name="testSilenceMasks" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="165" assertions="4" time="0.000960"/>
+        <testcase name="testWatchList" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="180" assertions="7" time="0.000799"/>
+        <testcase name="testClearWatchList" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="198" assertions="3" time="0.000417"/>
+        <testcase name="testSetAndGetSaslMechanism" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="210" assertions="1" time="0.000338"/>
+        <testcase name="testSetAndGetRemoteUser" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="216" assertions="2" time="0.000267"/>
+        <testcase name="testGetMask" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="225" assertions="1" time="0.000279"/>
+        <testcase name="testGetId" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="235" assertions="1" time="0.001129">
+          <failure type="PHPUnit\Framework\ExpectationFailedException">Tests\Unit\UserTest::testGetId
+Failed asserting that two strings are equal.
+--- Expected
++++ Actual
+@@ @@
+-'testuser!test@testhost.local'
++'user_ae722f225cf9720bb10b898e23a61d56'
+
+D:\git\php-ircd\tests\Unit\UserTest.php:242</failure>
+        </testcase>
+        <testcase name="testUpdateActivity" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="245" assertions="1" time="1.015674"/>
+        <testcase name="testIsInactive" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="257" assertions="2" time="0.000620">
+          <failure type="PHPUnit\Framework\ExpectationFailedException">Tests\Unit\UserTest::testIsInactive
+Failed asserting that false is true.
+
+D:\git\php-ircd\tests\Unit\UserTest.php:264</failure>
+        </testcase>
+        <testcase name="testGetConnectTime" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="267" assertions="4" time="0.000950"/>
+        <testcase name="testCapabilityNegotiation" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="275" assertions="2" time="0.000343"/>
+        <testcase name="testUndergoing302Negotiation" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="284" assertions="2" time="0.000361"/>
+        <testcase name="testIsSecureConnection" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="293" assertions="2" time="0.000357"/>
+        <testcase name="testSetSocketTimeout" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="305" assertions="1" time="0.000319"/>
+        <testcase name="testGetSocket" class="Tests\Unit\UserTest" classname="Tests.Unit.UserTest" file="D:\git\php-ircd\tests\Unit\UserTest.php" line="311" assertions="1" time="0.000303"/>
+      </testsuite>
+    </testsuite>
+  </testsuite>
+</testsuites>
